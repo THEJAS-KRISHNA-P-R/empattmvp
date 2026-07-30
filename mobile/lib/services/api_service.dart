@@ -7,7 +7,7 @@ import '../models/work_site.dart';
 /// TODO: Replace with your Vercel deployment URL after deploying.
 /// Example: 'https://empatt-abc123.vercel.app'
 /// ─────────────────────────────────────────────────────────────
-const String _baseUrl = 'https://YOUR_VERCEL_DEPLOYMENT.vercel.app';
+const String _baseUrl = 'https://employee-reg-psi.vercel.app';
 
 /// All HTTP calls to the Next.js backend API.
 class ApiService {
