@@ -37,6 +37,7 @@ export default function ManageSitesModal({ onClose }: Props) {
   const [inputMode, setInputMode] = useState<'map' | 'link'>('map');
 
   const [adding, setAdding] = useState(false);
+  const [resolvingLink, setResolvingLink] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -183,21 +184,53 @@ export default function ManageSitesModal({ onClose }: Props) {
 
               {inputMode === 'link' && (
                 <div>
-                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Google Maps or OSM Link</label>
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block flex justify-between items-center">
+                    <span>Google Maps or OSM Link</span>
+                    {resolvingLink && <span className="text-[10px] text-brand-600 flex items-center gap-1"><RefreshCw size={10} className="animate-spin" /> Resolving link...</span>}
+                  </label>
                   <input
                     type="text"
                     placeholder="Paste link here..."
                     className="w-full px-4 py-2.5 bg-brand-50/50 border border-brand-200 rounded-lg text-sm font-medium text-brand-900 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 placeholder-brand-300"
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const val = e.target.value;
+                      if (!val) return;
+
+                      // Quick local check first
                       const gmMatch = val.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || val.match(/\?q=(-?\d+\.\d+),(-?\d+\.\d+)/);
                       const osmMatch = val.match(/map=\d+\/(-?\d+\.\d+)\/(-?\d+\.\d+)/);
                       const latLngMatch = val.match(/(-?\d+\.\d+)(?:,|\s)+(-?\d+\.\d+)/);
-                      const match = gmMatch || osmMatch || latLngMatch;
-                      if (match) {
-                        setLatitude(match[1]);
-                        setLongitude(match[2]);
+                      const localMatch = gmMatch || osmMatch || latLngMatch;
+                      
+                      if (localMatch) {
+                        setLatitude(localMatch[1]);
+                        setLongitude(localMatch[2]);
                         setTimeout(() => { e.target.value = ''; }, 500);
+                        return;
+                      }
+
+                      // If it's a URL but didn't match locally (like a short link), resolve it server-side
+                      if (val.startsWith('http')) {
+                        setResolvingLink(true);
+                        try {
+                          const res = await fetch('/api/admin/resolve-link', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ url: val })
+                          });
+                          const data = await res.json();
+                          if (res.ok && data.latitude && data.longitude) {
+                            setLatitude(data.latitude.toString());
+                            setLongitude(data.longitude.toString());
+                            setTimeout(() => { e.target.value = ''; }, 500);
+                          } else {
+                            setError('Could not extract coordinates from that link.');
+                          }
+                        } catch {
+                          setError('Failed to resolve link.');
+                        } finally {
+                          setResolvingLink(false);
+                        }
                       }
                     }}
                   />

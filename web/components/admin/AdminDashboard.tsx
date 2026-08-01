@@ -73,6 +73,7 @@ export default function AdminDashboard() {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [activeMobileTab, setActiveMobileTab] = useState<'workers' | 'map' | 'timeline'>('workers');
+  const [showAllWorkers, setShowAllWorkers] = useState(false);
 
   const [loadingWorkers, setLoadingWorkers] = useState(true);
   const [loadingLogs, setLoadingLogs] = useState(false);
@@ -191,11 +192,14 @@ export default function AdminDashboard() {
     (l) => l.is_mock_location || l.within_geofence === false || l.sequence_anomaly
   ).length;
 
-  const filteredWorkers = workers.filter(
-    w => w.full_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-         w.phone.includes(searchQuery) ||
-         w.employee_id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredWorkers = workers.filter(w => {
+    const matchesSearch = w.full_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          w.phone.includes(searchQuery) ||
+                          w.employee_id.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!matchesSearch) return false;
+    if (!showAllWorkers && !w.latest_event) return false;
+    return true;
+  });
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 text-slate-900 overflow-hidden font-sans pb-16 md:pb-0">
@@ -229,21 +233,21 @@ export default function AdminDashboard() {
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <button
             onClick={() => setShowManageSites(true)}
-            className="flex items-center gap-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors"
+            className="hidden sm:flex items-center gap-2 text-sm font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 px-5 py-2.5 rounded-xl transition-all shadow-sm"
           >
-            <Settings size={16} className="text-slate-500" />
-            <span className="hidden sm:inline">Manage Work Sites</span>
+            <Settings size={16} className="text-brand-600" />
+            <span>Manage Work Sites</span>
           </button>
           
-          <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block" />
+          <div className="w-px h-6 bg-slate-200 hidden sm:block" />
           
           <button
             onClick={handleLogout}
             title="Log Out"
-            className="flex items-center justify-center w-9 h-9 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+            className="flex items-center justify-center w-10 h-10 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
           >
             <LogOut size={18} />
           </button>
@@ -293,6 +297,22 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </div>
+            
+            <div className="flex bg-slate-100 p-1 rounded-lg">
+              <button
+                onClick={() => setShowAllWorkers(false)}
+                className={`flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-md transition-all ${!showAllWorkers ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                Active Today
+              </button>
+              <button
+                onClick={() => setShowAllWorkers(true)}
+                className={`flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-md transition-all ${showAllWorkers ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                All Workers
+              </button>
+            </div>
+
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search size={14} className="text-slate-400" />
