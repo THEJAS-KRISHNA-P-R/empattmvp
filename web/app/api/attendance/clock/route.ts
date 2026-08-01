@@ -97,11 +97,11 @@ export async function POST(request: Request) {
     // --- 2. Verify site exists, fetch its geofence ---
     const { data: site, error: siteError } = await supabaseAdmin
       .from('work_sites')
-      .select('id, latitude, longitude, radius_meters')
+      .select('id, latitude, longitude, radius_meters, is_active')
       .eq('id', site_id)
       .single();
 
-    if (siteError || !site) {
+    if (siteError || !site || !site.is_active) {
       return NextResponse.json({ error: 'Work site not found' }, { status: 404 });
     }
 

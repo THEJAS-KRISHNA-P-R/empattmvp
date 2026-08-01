@@ -124,10 +124,10 @@ export default function ManageSitesModal({ onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-[999] flex items-end sm:items-center justify-center sm:p-6">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
       
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-3xl overflow-hidden flex flex-col h-[90vh] sm:max-h-[90vh]">
         
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
@@ -162,11 +162,11 @@ export default function ManageSitesModal({ onClose }: Props) {
           </button>
         </div>
 
-        <div className="flex flex-col flex-1 overflow-hidden bg-slate-50/50">
+        <div className="flex flex-col flex-1 min-h-0 bg-slate-50/50">
           
           {/* ──────────────── LIST VIEW ──────────────── */}
           {view === 'list' && (
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
               <div className="p-6 pb-2 shrink-0 flex justify-end">
                 <button
                   onClick={() => {
@@ -180,7 +180,7 @@ export default function ManageSitesModal({ onClose }: Props) {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 pt-4">
+              <div className="flex-1 min-h-0 overflow-y-auto p-6 pt-4">
                 {error && (
                   <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg flex items-start gap-2 text-red-700 text-sm">
                     <AlertCircle size={16} className="mt-0.5 shrink-0" />
@@ -232,7 +232,7 @@ export default function ManageSitesModal({ onClose }: Props) {
                           <button
                             onClick={() => handleDelete(site.id)}
                             disabled={deletingId === site.id}
-                            className="text-slate-300 hover:text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors p-2 rounded-lg opacity-0 group-hover:opacity-100"
+                            className="text-slate-400 hover:text-red-600 hover:bg-red-50 active:bg-red-100 disabled:opacity-50 transition-colors p-2 rounded-lg"
                             title="Delete Site"
                           >
                             {deletingId === site.id ? <RefreshCw size={16} className="animate-spin" /> : <Trash2 size={16} />}
@@ -248,7 +248,7 @@ export default function ManageSitesModal({ onClose }: Props) {
 
           {/* ──────────────── ADD VIEW ──────────────── */}
           {view === 'add' && (
-            <div className="flex-1 overflow-y-auto p-6 flex justify-center">
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 flex justify-center">
               <form onSubmit={handleAddSite} className="flex flex-col gap-5 w-full max-w-xl">
                 {error && (
                   <div className="p-3 bg-red-50 border border-red-100 rounded-lg flex items-start gap-2 text-red-700 text-sm">
