@@ -144,6 +144,30 @@ export default function ManageSitesModal({ onClose }: Props) {
                   className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
                 />
               </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block flex items-center justify-between">
+                  <span>Paste Map Link (Optional)</span>
+                  <span className="text-[10px] text-brand-600 font-normal">Auto-fills coordinates</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Paste Google Maps or OSM link..."
+                  className="w-full px-3 py-2 bg-brand-50/50 border border-brand-100 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 placeholder-slate-400"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const gmMatch = val.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || val.match(/\?q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+                    const osmMatch = val.match(/map=\d+\/(-?\d+\.\d+)\/(-?\d+\.\d+)/);
+                    const latLngMatch = val.match(/(-?\d+\.\d+)(?:,|\s)+(-?\d+\.\d+)/);
+                    const match = gmMatch || osmMatch || latLngMatch;
+                    if (match) {
+                      setLatitude(match[1]);
+                      setLongitude(match[2]);
+                      // Clear the input after successful extraction to avoid clutter
+                      setTimeout(() => { e.target.value = ''; }, 500);
+                    }
+                  }}
+                />
+              </div>
               <div className="flex gap-3">
                 <div className="flex-1">
                   <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Latitude</label>
