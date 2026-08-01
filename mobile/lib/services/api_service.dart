@@ -128,6 +128,36 @@ class ApiService {
       throw const ApiException('Failed to load work sites.');
     }
   }
+
+  // ──────────────────────────────────────────────────
+  // WORKER STATUS & HISTORY
+  // ──────────────────────────────────────────────────
+
+  /// GET /api/worker/status
+  static Future<Map<String, dynamic>> getWorkerStatus(String workerId) async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/api/worker/status?worker_id=$workerId'))
+        .timeout(_timeout);
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode == 200) {
+      return body['status'] as Map<String, dynamic>;
+    }
+    throw ApiException(body['error']?.toString() ?? 'Failed to load status.');
+  }
+
+  /// GET /api/worker/history
+  static Future<List<dynamic>> getWorkerHistory(String workerId) async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/api/worker/history?worker_id=$workerId'))
+        .timeout(_timeout);
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode == 200) {
+      return body['history'] as List<dynamic>;
+    }
+    throw ApiException(body['error']?.toString() ?? 'Failed to load history.');
+  }
 }
 
 /// Typed exception for user-facing API error messages. [code] is the

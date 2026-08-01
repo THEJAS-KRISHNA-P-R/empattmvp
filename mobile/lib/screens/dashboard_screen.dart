@@ -12,6 +12,7 @@ import '../theme/app_colors.dart';
 import '../widgets/app_card.dart';
 import '../widgets/app_dialog.dart';
 import 'login_screen.dart';
+import 'history_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Worker worker;
@@ -47,11 +48,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   StreamSubscription<Position>? _gpsSubscription;
 
+  // Status & Timer
+  String? _currentStatus; // 'IN' or 'OUT'
+  DateTime? _lastClockTime;
+  Timer? _clockTimer;
+  String _elapsedTimeStr = '00:00:00';
+  bool _loadingStatus = true;
+
   @override
   void initState() {
     super.initState();
     _startGpsStream();
     _loadSites();
+    _loadStatus();
+    _startTimer();
     _refreshPendingCount();
     // Retry any events left over from a previous session (app was killed
     // or closed while offline) as soon as we have connectivity.
@@ -64,6 +74,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   void dispose() {
+    _clockTimer?.cancel();
     _connectivitySubscription?.cancel();
     _gpsSubscription?.cancel();
     super.dispose();
@@ -79,7 +90,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await _refreshPendingCount();
     if (syncedCount > 0 && mounted) {
       _showSnack('Synced $syncedCount pending event${syncedCount == 1 ? '' : 's'}.');
+      _loadStatus(); // refresh after sync in case it changed
     }
+  }
+
+  // ───────────────────────────────────────
+  // Status & Timer
+  // ───────────────────────────────────────
+  Future<void> _loadStatus() async {
+    try {
+      final status = await ApiService.getWorkerStatus(widget.worker.id);
+      if (mounted) {
+        setState(() {
+          _currentStatus = status['last_event'] as String?;
+          final timestamp = status['client_timestamp'] as String?;
+          _lastClockTime = timestamp != null ? DateTime.parse(timestamp).toLocal() : null;
+          _loadingStatus = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loadingStatus = false);
+    }
+  }
+
+  void _startTimer() {
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      if (_currentStatus == 'IN' && _lastClockTime != null) {
+        final diff = DateTime.now().difference(_lastClockTime!);
+        final hours = diff.inHours.toString().padLeft(2, '0');
+        final minutes = (diff.inMinutes % 60).toString().padLeft(2, '0');
+        final seconds = (diff.inSeconds % 60).toString().padLeft(2, '0');
+        setState(() {
+          _elapsedTimeStr = '$hours:$minutes:$seconds';
+        });
+      } else if (_currentStatus == 'OUT') {
+        setState(() {
+          _elapsedTimeStr = '00:00:00';
+        });
+      }
+    });
   }
 
   // ───────────────────────────────────────
@@ -270,6 +320,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         clientTimestamp: clientTimestamp,
       );
       _showSnack(message);
+      if (mounted) {
+        setState(() {
+          _currentStatus = eventType;
+          _lastClockTime = clientTimestamp;
+          if (eventType == 'OUT') _elapsedTimeStr = '00:00:00';
+        });
+      }
       // Opportunistically flush anything still queued from earlier — if
       // this request got through, we're online.
       unawaited(_attemptSync());
@@ -301,6 +358,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       );
       await _refreshPendingCount();
+      if (mounted) {
+        setState(() {
+          _currentStatus = eventType;
+          _lastClockTime = clientTimestamp;
+          if (eventType == 'OUT') _elapsedTimeStr = '00:00:00';
+        });
+      }
       _showSnack(
         'No connection — saved locally. Will sync automatically when back online.',
         isError: true,
@@ -437,6 +501,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => HistoryScreen(workerId: widget.worker.id)),
+                      );
+                    },
+                    icon: const Icon(Icons.history_rounded, color: AppColors.brand600, size: 24),
+                    tooltip: 'View History',
                   ),
                   IconButton(
                     onPressed: _handleLogout,
@@ -578,61 +651,84 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                     ),
 
-                    const SizedBox(height: 32),
-
-                    // ─── Clock IN Button ──────────────────────
-                    SizedBox(
-                      height: 64,
-                      child: ElevatedButton.icon(
-                        onPressed: anyLoading ? null : () => _handleClock('IN'),
-                        icon: _clockingIn
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                              )
-                            : const Icon(Icons.login_rounded, size: 24),
-                        label: Text(
-                          _clockingIn ? 'Getting GPS…' : 'CLOCK IN',
-                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: 1),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.brand600,
-                          disabledBackgroundColor: AppColors.brand600.withValues(alpha: 0.35),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          elevation: 0,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // ─── Clock OUT Button ─────────────────────
-                    SizedBox(
-                      height: 64,
-                      child: ElevatedButton.icon(
-                        onPressed: anyLoading ? null : () => _handleClock('OUT'),
-                        icon: _clockingOut
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                              )
-                            : const Icon(Icons.logout_rounded, size: 24),
-                        label: Text(
-                          _clockingOut ? 'Getting GPS…' : 'CLOCK OUT',
-                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: 1),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.red600,
-                          disabledBackgroundColor: AppColors.red600.withValues(alpha: 0.35),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          elevation: 0,
+                    if (_loadingStatus)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 32),
+                        child: Center(child: CircularProgressIndicator(color: AppColors.brand600)),
+                      )
+                    else if (_currentStatus != 'IN') ...[
+                      const SizedBox(height: 32),
+                      // ─── Clock IN Button ──────────────────────
+                      SizedBox(
+                        height: 64,
+                        child: ElevatedButton.icon(
+                          onPressed: anyLoading ? null : () => _handleClock('IN'),
+                          icon: _clockingIn
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                                )
+                              : const Icon(Icons.login_rounded, size: 24),
+                          label: Text(
+                            _clockingIn ? 'Getting GPS…' : 'CLOCK IN',
+                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: 1),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.brand600,
+                            disabledBackgroundColor: AppColors.brand600.withValues(alpha: 0.35),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 0,
+                          ),
                         ),
                       ),
-                    ),
+                    ] else ...[
+                      const SizedBox(height: 32),
+                      // ─── Clock OUT Button & Timer ─────────────
+                      AppCard(
+                        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                        child: Column(
+                          children: [
+                            const Text(
+                              'CURRENT SHIFT DURATION',
+                              style: TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _elapsedTimeStr,
+                              style: const TextStyle(color: AppColors.textPrimary, fontSize: 36, fontWeight: FontWeight.w800, fontFamily: 'monospace'),
+                            ),
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 64,
+                              child: ElevatedButton.icon(
+                                onPressed: anyLoading ? null : () => _handleClock('OUT'),
+                                icon: _clockingOut
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                                      )
+                                    : const Icon(Icons.logout_rounded, size: 24),
+                                label: Text(
+                                  _clockingOut ? 'Getting GPS…' : 'CLOCK OUT',
+                                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: 1),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.red600,
+                                  disabledBackgroundColor: AppColors.red600.withValues(alpha: 0.35),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  elevation: 0,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
 
                     const SizedBox(height: 32),
 
