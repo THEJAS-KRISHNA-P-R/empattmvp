@@ -1,7 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { X, MapPin, AlertCircle, Plus, Trash2, RefreshCw } from 'lucide-react';
+
+const SitePickerMap = dynamic(() => import('./SitePickerMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-full w-full bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200">
+      <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-300 border-t-brand-600" />
+    </div>
+  ),
+});
 
 interface WorkSite {
   id: string;
@@ -204,6 +214,17 @@ export default function ManageSitesModal({ onClose }: Props) {
                   value={radius}
                   onChange={(e) => setRadius(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
+                />
+              </div>
+              <div className="h-48 relative rounded-lg border border-slate-200 overflow-hidden shrink-0">
+                <SitePickerMap
+                  latitude={latitude ? parseFloat(latitude) : null}
+                  longitude={longitude ? parseFloat(longitude) : null}
+                  radiusMeters={parseInt(radius, 10) || 200}
+                  onLocationSelect={(lat, lng) => {
+                    setLatitude(lat.toFixed(6));
+                    setLongitude(lng.toFixed(6));
+                  }}
                 />
               </div>
               <button
