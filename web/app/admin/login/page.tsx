@@ -38,7 +38,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="h-screen overflow-hidden bg-slate-50 flex flex-col items-center justify-center px-4">
+    <div className="fixed inset-0 overflow-hidden bg-slate-50 flex flex-col items-center justify-center px-4 sm:px-6">
       {/* Subtle brand-tinted backdrop, not a loud gradient */}
       <div
         className="pointer-events-none absolute inset-0 overflow-hidden"
