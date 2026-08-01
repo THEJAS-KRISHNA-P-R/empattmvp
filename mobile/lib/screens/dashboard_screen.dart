@@ -283,7 +283,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     //    worker needs to get a GPS fix and try again.
     //    We prioritize the hot stream location (_lastPosition) to make clocking instant.
     final LocationResult location;
-    if (_lastPosition != null) {
+    // We prioritize the hot stream location (_lastPosition) to make clocking instant,
+    // BUT only if its accuracy is good (< 50 meters). Otherwise, network/cell-tower 
+    // locations can cause massive jumps and false geofence triggers.
+    if (_lastPosition != null && _lastPosition!.accuracy < 50) {
       location = LocationResult(
         latitude: _lastPosition!.latitude,
         longitude: _lastPosition!.longitude,

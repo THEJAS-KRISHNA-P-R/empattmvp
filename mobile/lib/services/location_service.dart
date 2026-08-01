@@ -59,7 +59,8 @@ class LocationService {
       final lastKnown = await Geolocator.getLastKnownPosition();
       if (lastKnown != null) {
         final age = DateTime.now().difference(lastKnown.timestamp);
-        if (age.inSeconds < 30) {
+        // Only trust it if it's recent AND highly accurate (< 50m)
+        if (age.inSeconds < 30 && lastKnown.accuracy < 50) {
           return LocationResult(
             latitude: lastKnown.latitude,
             longitude: lastKnown.longitude,
