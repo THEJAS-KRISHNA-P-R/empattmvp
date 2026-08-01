@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 const BCRYPT_ROUNDS = 10;
 const MIN_PIN_LENGTH = 4;
 
-export async function PUT(request: Request, context: { params: { id: string } }) {
+export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const body = await request.json();
     const { full_name, phone, employee_id, pin, is_active } = body ?? {};
@@ -21,7 +21,7 @@ export async function PUT(request: Request, context: { params: { id: string } })
       return NextResponse.json({ error: 'Phone number must be exactly 10 digits with a +91 prefix' }, { status: 400 });
     }
 
-    const updates: Record<string, any> = {
+    const updates: Record<string, unknown> = {
       full_name,
       phone,
       employee_id,
@@ -56,7 +56,7 @@ export async function PUT(request: Request, context: { params: { id: string } })
   }
 }
 
-export async function DELETE(request: Request, context: { params: { id: string } }) {
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
     if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
