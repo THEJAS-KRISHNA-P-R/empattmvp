@@ -216,20 +216,20 @@ export default function AdminDashboard() {
               <Users size={12} />
               Field Workers ({workers.length})
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <button
                 onClick={() => setShowAddWorker(true)}
                 aria-label="Add worker"
                 title="Add worker"
-                className="text-slate-400 hover:text-brand-600 transition-colors cursor-pointer p-1 -m-1 rounded"
+                className="bg-brand-600 hover:bg-brand-700 text-white transition-colors cursor-pointer p-1.5 rounded flex items-center justify-center shadow-sm"
               >
-                <UserPlus size={15} />
+                <UserPlus size={14} strokeWidth={2.5} />
               </button>
               <button
                 onClick={fetchWorkers}
                 disabled={loadingWorkers}
                 aria-label="Refresh worker list"
-                className="text-slate-400 hover:text-brand-600 transition-colors cursor-pointer p-1 -m-1 rounded"
+                className="text-slate-400 hover:text-brand-600 transition-colors cursor-pointer p-1 rounded"
               >
                 <RefreshCw size={14} className={loadingWorkers ? 'animate-spin' : ''} />
               </button>
