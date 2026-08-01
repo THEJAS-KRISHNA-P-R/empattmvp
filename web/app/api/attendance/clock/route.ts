@@ -114,10 +114,9 @@ export async function POST(request: Request) {
     );
     const withinGeofence = distanceMeters <= site.radius_meters;
 
-    // --- 4. Sequence check (flag only) ---
     // A worker clocking IN while their last event was also IN (or clocking
-    // OUT with no prior IN) breaks the IN->OUT pairing the admin map relies
-    // on to draw journey polylines. We still record it — just flagged.
+    // OUT with no prior IN) breaks the IN->OUT pairing. Per user request,
+    // we now reject these entirely on the server.
     const { data: lastLog } = await supabaseAdmin
       .from('clock_logs')
       .select('event_type')
@@ -126,9 +125,19 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle();
 
-    const sequenceAnomaly =
-      (event_type === 'IN' && lastLog?.event_type === 'IN') ||
-      (event_type === 'OUT' && (!lastLog || lastLog.event_type === 'OUT'));
+    if (event_type === 'IN' && lastLog?.event_type === 'IN') {
+      return NextResponse.json(
+        { error: 'You are already clocked in. Please clock out first.' },
+        { status: 400 }
+      );
+    }
+
+    if (event_type === 'OUT' && (!lastLog || lastLog.event_type === 'OUT')) {
+      return NextResponse.json(
+        { error: 'You are not clocked in. Please clock in first.' },
+        { status: 400 }
+      );
+    }
 
     // --- 5. Insert clock log ---
     const { error: insertError } = await supabaseAdmin.from('clock_logs').insert({
@@ -141,7 +150,7 @@ export async function POST(request: Request) {
       is_mock_location: Boolean(is_mock_location),
       distance_from_site_meters: Math.round(distanceMeters),
       within_geofence: withinGeofence,
-      sequence_anomaly: sequenceAnomaly,
+      sequence_anomaly: false,
       client_timestamp,
     });
 
@@ -160,7 +169,6 @@ export async function POST(request: Request) {
       warnings: {
         outside_geofence: !withinGeofence,
         distance_from_site_meters: Math.round(distanceMeters),
-        sequence_anomaly: sequenceAnomaly,
       },
     });
   } catch (err) {
