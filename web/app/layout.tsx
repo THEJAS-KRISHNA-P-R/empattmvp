@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Matches the brand typeface already established elsewhere (YourFee),
+// and reads cleanly at dashboard data-density: geometric, high-legibility
+// at small sizes, distinct numeral shapes (important for a table full of
+// timestamps and coordinates).
+const plusJakartaSans = Plus_Jakarta_Sans({
+  variable: "--font-plus-jakarta-sans",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -23,11 +23,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="h-full bg-gray-950 text-white">{children}</body>
+    <html lang="en" className={`${plusJakartaSans.variable} h-full antialiased`}>
+      <body className="h-full font-sans">{children}</body>
     </html>
   );
 }

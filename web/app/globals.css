@@ -1,26 +1,82 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   EmpAtt design tokens — light mode only, deliberately.
+   No purple/violet/indigo anywhere in this palette by design.
+   Brand green (#1BA67E) intentionally mirrors the existing YourFee brand
+   color; the darker 600/700 shades exist because the raw brand color
+   alone doesn't clear WCAG AA (4.5:1) for white text on a filled button —
+   verified by computing actual contrast ratios, not eyeballed.
+   ========================================================================== */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #F8FAFC;
+  --foreground: #0F172A;
+
+  /* Brand green (primary/interactive) */
+  --color-brand-50: #ECFDF5;
+  --color-brand-100: #D1FAE5;
+  --color-brand-400: #1BA67E;
+  --color-brand-600: #0F8060;
+  --color-brand-700: #0D6E52;
+
+  /* Neutrals */
+  --color-slate-50: #F8FAFC;
+  --color-slate-100: #F1F5F9;
+  --color-slate-200: #E2E8F0;
+  --color-slate-300: #CBD5E1;
+  --color-slate-400: #94A3B8;
+  --color-slate-500: #64748B;
+  --color-slate-600: #475569;
+  --color-slate-900: #0F172A;
+
+  /* Semantic status (map markers, badges, alerts) */
+  --color-red-50: #FEF2F2;
+  --color-red-600: #DC2626;
+  --color-red-700: #B91C1C;
+  --color-amber-50: #FFFBEB;
+  --color-amber-600: #D97706;
+  --color-amber-700: #B45309;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-plus-jakarta-sans);
+
+  --color-brand-50: var(--color-brand-50);
+  --color-brand-100: var(--color-brand-100);
+  --color-brand-400: var(--color-brand-400);
+  --color-brand-600: var(--color-brand-600);
+  --color-brand-700: var(--color-brand-700);
+
+  --color-slate-50: var(--color-slate-50);
+  --color-slate-100: var(--color-slate-100);
+  --color-slate-200: var(--color-slate-200);
+  --color-slate-300: var(--color-slate-300);
+  --color-slate-400: var(--color-slate-400);
+  --color-slate-500: var(--color-slate-500);
+  --color-slate-600: var(--color-slate-600);
+  --color-slate-900: var(--color-slate-900);
+
+  --color-red-50: var(--color-red-50);
+  --color-red-600: var(--color-red-600);
+  --color-red-700: var(--color-red-700);
+  --color-amber-50: var(--color-amber-50);
+  --color-amber-600: var(--color-amber-600);
+  --color-amber-700: var(--color-amber-700);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* Deliberately no `@media (prefers-color-scheme: dark)` override — this
+   app is light mode only, regardless of the visitor's system setting. */
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Visible focus rings everywhere, keyboard nav included (ui-ux-pro-max:
+   accessibility is priority 1 — never remove focus states). */
+:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
 }

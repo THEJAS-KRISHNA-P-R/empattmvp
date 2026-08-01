@@ -28,7 +28,13 @@ CREATE TABLE workers (
     full_name VARCHAR(100) NOT NULL,
     phone VARCHAR(20) UNIQUE NOT NULL,
 
-    -- bcrypt hash of the 4-digit passcode (NEVER store the raw passcode).
+    -- Second login credential, admin-assigned. Deliberately not validated
+    -- as a real email — field workers often don't have one, so an admin
+    -- can just assign a plain ID like "EMP001" instead. Login requires
+    -- phone + employee_id + PIN to all match, not just PIN alone.
+    employee_id VARCHAR(50) UNIQUE NOT NULL,
+
+    -- bcrypt hash of the PIN/password (NEVER store the raw value).
     -- bcrypt output is always 60 chars; VARCHAR(72) gives headroom.
     passcode_hash VARCHAR(72) NOT NULL,
 
@@ -57,7 +63,7 @@ CREATE TABLE work_sites (
     name VARCHAR(150) NOT NULL,
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,
-    radius_meters INT DEFAULT 200,
+    radius_meters INT NOT NULL DEFAULT 200 CHECK (radius_meters > 0),
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -96,9 +102,26 @@ CREATE TABLE clock_logs (
 -- INDEXES — for rapid Admin Dashboard filtering
 -- -------------------------------------------------------
 CREATE INDEX idx_clock_logs_worker_time ON clock_logs(worker_id, client_timestamp DESC);
-CREATE INDEX idx_clock_logs_date ON clock_logs((client_timestamp::DATE));
+-- Cast through a fixed UTC offset, not a plain ::date cast — a bare
+-- `client_timestamp::DATE` cast depends on the connection's session
+-- timezone (STABLE, not IMMUTABLE), which Postgres rejects in an index
+-- expression. This was caught by actually running this file against a
+-- real Postgres instance, not by inspection.
+CREATE INDEX idx_clock_logs_date ON clock_logs(((client_timestamp AT TIME ZONE 'UTC')::date));
 CREATE INDEX idx_clock_logs_site ON clock_logs(site_id);
 CREATE INDEX idx_workers_phone ON workers(phone);
+CREATE INDEX idx_workers_employee_id ON workers(employee_id);
+
+-- Enforces the OTHER direction of "1:1 hardware device binding" that the
+-- application-layer check alone can't fully guarantee under concurrent
+-- requests: the SAME device can never be bound to two DIFFERENT workers
+-- at once. Partial (WHERE bound_device_id IS NOT NULL) because multiple
+-- workers legitimately have bound_device_id = NULL before their first
+-- login. This is the actual race-safety backstop for
+-- app/api/auth/login/route.ts — see the comment there.
+CREATE UNIQUE INDEX idx_workers_bound_device_unique
+  ON workers(bound_device_id)
+  WHERE bound_device_id IS NOT NULL;
 
 -- -------------------------------------------------------
 -- ROW LEVEL SECURITY (RLS)
@@ -122,10 +145,13 @@ INSERT INTO work_sites (name, latitude, longitude, radius_meters) VALUES
     ('South Orchard Site B',  12.9250, 77.5890, 250);
 
 -- Seed Demo Workers.
--- Passcodes below are bcrypt hashes (cost factor 10) of the demo
--- passcodes '1234' and '5678' — the raw passcodes are never stored.
--- To seed a NEW worker with your own passcode, generate a hash with:
---   node -e "console.log(require('bcryptjs').hashSync('YOUR_4_DIGITS', 10))"
-INSERT INTO workers (full_name, phone, passcode_hash) VALUES
-    ('John Field Worker', '+1234567890', '$2b$10$iznqLo1HQzLXJyL2S.7HrOW610FBmh1As7leTX4HdtRUzVhuQn7c6'), -- passcode: 1234
-    ('Sarah Inspector',   '+0987654321', '$2b$10$s03O8ff9rGipfEuJe7GnRunqaJt3GBYZV0XVFjWG7OVA2bweEW12S'); -- passcode: 5678
+-- PINs below are bcrypt hashes (cost factor 10) of the demo PINs '1234'
+-- and '5678' — the raw PIN is never stored. Login now requires phone +
+-- employee_id + PIN all three to match (see app/api/auth/login/route.ts).
+-- To seed a NEW worker with your own PIN, generate a hash with:
+--   node -e "console.log(require('bcryptjs').hashSync('YOUR_PIN', 10))"
+-- (or just use the admin dashboard's Add Worker form instead — it does
+-- this for you)
+INSERT INTO workers (full_name, phone, employee_id, passcode_hash) VALUES
+    ('John Field Worker', '+1234567890', 'EMP001', '$2b$10$iznqLo1HQzLXJyL2S.7HrOW610FBmh1As7leTX4HdtRUzVhuQn7c6'), -- PIN: 1234
+    ('Sarah Inspector',   '+0987654321', 'EMP002', '$2b$10$s03O8ff9rGipfEuJe7GnRunqaJt3GBYZV0XVFjWG7OVA2bweEW12S'); -- PIN: 5678

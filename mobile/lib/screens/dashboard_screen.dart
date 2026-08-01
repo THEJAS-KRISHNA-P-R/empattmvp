@@ -8,6 +8,9 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/location_service.dart';
 import '../services/offline_queue_service.dart';
+import '../theme/app_colors.dart';
+import '../widgets/app_card.dart';
+import '../widgets/app_dialog.dart';
 import 'login_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -41,6 +44,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Connectivity / sync
   int _pendingSyncCount = 0;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  StreamSubscription<Position>? _gpsSubscription;
 
   @override
   void initState() {
@@ -60,6 +64,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     _connectivitySubscription?.cancel();
+    _gpsSubscription?.cancel();
     super.dispose();
   }
 
@@ -81,7 +86,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ───────────────────────────────────────
   void _startGpsStream() {
     try {
-      LocationService.getPositionStream().listen(
+      _gpsSubscription = LocationService.getPositionStream().listen(
         (pos) {
           if (mounted) setState(() => _lastPosition = pos);
         },
@@ -111,6 +116,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // ───────────────────────────────────────
+  // Forced logout — when the backend reports the device/account is no
+  // longer valid for continued use (admin reset the phone lock, or
+  // deactivated the account), keeping the worker "logged in" locally with
+  // no way to ever clock in again is worse than logging them out with an
+  // explanation. This is the fix for a real gap: previously any of these
+  // conditions just showed the same generic error forever with no path
+  // forward.
+  // ───────────────────────────────────────
+  Future<void> _forceLogout(String reason) async {
+    await AuthService.clearSession();
+    if (!mounted) return;
+    await showAppAlert(
+      context,
+      title: 'Logged Out',
+      message: reason,
+      icon: Icons.info_outline_rounded,
+      iconColor: AppColors.amber600,
+    );
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
+  /// Returns true if this exception was handled by forcing a logout (in
+  /// which case the caller should not also show its own error snack).
+  Future<bool> _handleApiExceptionCode(ApiException e) async {
+    switch (e.code) {
+      case 'DEVICE_MISMATCH':
+        await _forceLogout(
+          'This phone is no longer linked to your account (an admin may have reset the phone lock). Please log in again.',
+        );
+        return true;
+      case 'ACCOUNT_DEACTIVATED':
+        await _forceLogout('Your account has been deactivated. Contact your admin.');
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  // ───────────────────────────────────────
   // Clock Action
   // ───────────────────────────────────────
   Future<void> _handleClock(String eventType) async {
@@ -128,7 +176,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // 1. Get GPS position. If this fails, there's nothing to queue — the
     //    worker needs to get a GPS fix and try again, that's not a
     //    connectivity problem.
-    final Position location;
+    final LocationResult location;
     try {
       location = await LocationService.getCurrentLocation();
     } catch (e) {
@@ -169,8 +217,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       // input, deactivated account, etc). Retrying the identical request
       // will fail the same way, so this does NOT get queued — that would
       // just mean the same rejection keeps happening silently in the
-      // background.
-      _showSnack(e.message, isError: true);
+      // background. Some rejection reasons mean the local session is no
+      // longer valid at all — force a clean re-login for those instead of
+      // just showing an error every time.
+      final handled = await _handleApiExceptionCode(e);
+      if (!handled) _showSnack(e.message, isError: true);
     } catch (e) {
       // Never reached the server — genuine connectivity failure. This is
       // exactly what the offline queue is for.
@@ -212,21 +263,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E2E),
+        backgroundColor: AppColors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Logout?', style: TextStyle(color: Colors.white)),
+        title: const Text('Log Out?', style: TextStyle(color: AppColors.textPrimary)),
         content: const Text(
-          'You will be logged out of EmpAtt. Your device binding remains intact.',
-          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+          'You will be logged out of EmpAtt. Your phone lock remains intact.',
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Logout', style: TextStyle(color: Color(0xFFEF4444))),
+            child: const Text('Log Out', style: TextStyle(color: AppColors.red600, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -252,7 +303,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg, style: const TextStyle(color: Colors.white, fontSize: 13)),
-        backgroundColor: isError ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+        backgroundColor: isError ? AppColors.red600 : AppColors.brand600,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         duration: duration,
@@ -272,10 +323,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Color get _gpsBadgeColor {
-    if (_lastPosition == null || _gpsLoading) return const Color(0xFF475569);
-    if (_lastPosition!.isMocked) return const Color(0xFFF59E0B);
-    if (_lastPosition!.accuracy > 100) return const Color(0xFFF59E0B);
-    return const Color(0xFF22C55E);
+    if (_lastPosition == null || _gpsLoading) return AppColors.slate400;
+    if (_lastPosition!.isMocked) return AppColors.amber600;
+    if (_lastPosition!.accuracy > 100) return AppColors.amber600;
+    return AppColors.brand600;
   }
 
   @override
@@ -283,7 +334,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final bool anyLoading = _clockingIn || _clockingOut;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -292,8 +343,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: const BoxDecoration(
-                color: Color(0xFF1A1A2E),
-                border: Border(bottom: BorderSide(color: Color(0xFF2D2D3F))),
+                color: AppColors.surface,
+                border: Border(bottom: BorderSide(color: AppColors.border)),
               ),
               child: Row(
                 children: [
@@ -301,9 +352,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                      ),
+                      color: AppColors.brand600,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(Icons.person_rounded, color: Colors.white, size: 22),
@@ -316,22 +365,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Text(
                           widget.worker.fullName,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         Text(
                           widget.worker.phone,
-                          style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
                     onPressed: _handleLogout,
-                    icon: const Icon(Icons.logout_rounded, color: Color(0xFF475569), size: 22),
-                    tooltip: 'Logout',
+                    icon: const Icon(Icons.logout_rounded, color: AppColors.slate400, size: 22),
+                    tooltip: 'Log out',
                   ),
                 ],
               ),
@@ -340,19 +389,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
             // ─── Sync / Pending banner ────────────────────
             if (_pendingSyncCount > 0)
               Material(
-                color: const Color(0xFF451A03),
+                color: AppColors.amber50,
                 child: InkWell(
                   onTap: _attemptSync,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Row(
                       children: [
-                        const Icon(Icons.sync_problem_rounded, color: Color(0xFFF97316), size: 16),
+                        const Icon(Icons.sync_problem_rounded, color: AppColors.amber700, size: 16),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             '$_pendingSyncCount event${_pendingSyncCount == 1 ? '' : 's'} saved locally, not yet synced. Tap to retry.',
-                            style: const TextStyle(color: Color(0xFFF97316), fontSize: 12),
+                            style: const TextStyle(color: AppColors.amber700, fontSize: 12),
                           ),
                         ),
                       ],
@@ -368,13 +417,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // ─── GPS Status Badge ──────────────────────
-                    Container(
+                    AppCard(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E2E),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFF2D2D3F)),
-                      ),
                       child: Row(
                         children: [
                           Icon(
@@ -416,20 +460,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const Text(
                       'WORK SITE',
                       style: TextStyle(
-                        color: Color(0xFF64748B),
+                        color: AppColors.textSecondary,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Container(
+                    AppCard(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E2E),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFF2D2D3F)),
-                      ),
                       child: _loadingSites
                           ? const Padding(
                               padding: EdgeInsets.symmetric(vertical: 12),
@@ -438,30 +477,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   SizedBox(
                                     width: 16,
                                     height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF6366F1)),
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.brand600),
                                   ),
                                   SizedBox(width: 10),
-                                  Text('Loading sites…', style: TextStyle(color: Color(0xFF64748B))),
+                                  Text('Loading sites…', style: TextStyle(color: AppColors.textSecondary)),
                                 ],
                               ),
                             )
                           : DropdownButton<WorkSite>(
                               value: _selectedSite,
                               isExpanded: true,
-                              dropdownColor: const Color(0xFF1E1E2E),
+                              dropdownColor: AppColors.white,
                               underline: const SizedBox.shrink(),
-                              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF475569)),
+                              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.slate400),
                               items: _sites.map((site) {
                                 return DropdownMenuItem<WorkSite>(
                                   value: site,
                                   child: Row(
                                     children: [
-                                      const Icon(Icons.location_pin, color: Color(0xFF6366F1), size: 16),
+                                      const Icon(Icons.location_pin, color: AppColors.brand600, size: 16),
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
                                           site.name,
-                                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
@@ -494,8 +533,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: 1),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF16A34A),
-                          disabledBackgroundColor: const Color(0xFF16A34A).withValues(alpha: 0.35),
+                          backgroundColor: AppColors.brand600,
+                          disabledBackgroundColor: AppColors.brand600.withValues(alpha: 0.35),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           elevation: 0,
@@ -522,8 +561,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: 1),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFDC2626),
-                          disabledBackgroundColor: const Color(0xFFDC2626).withValues(alpha: 0.35),
+                          backgroundColor: AppColors.red600,
+                          disabledBackgroundColor: AppColors.red600.withValues(alpha: 0.35),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           elevation: 0,
@@ -534,24 +573,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 32),
 
                     // ─── Info card ────────────────────────────
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E2E),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFF2D2D3F)),
-                      ),
+                    AppCard(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Row(
                             children: [
-                              Icon(Icons.info_outline_rounded, color: Color(0xFF6366F1), size: 16),
+                              Icon(Icons.info_outline_rounded, color: AppColors.brand600, size: 16),
                               SizedBox(width: 6),
                               Text(
                                 'How it works',
                                 style: TextStyle(
-                                  color: Color(0xFF94A3B8),
+                                  color: AppColors.textSecondary,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -582,9 +615,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('• ', style: TextStyle(color: Color(0xFF6366F1), fontSize: 13)),
+          const Text('• ', style: TextStyle(color: AppColors.brand600, fontSize: 13)),
           Expanded(
-            child: Text(text, style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+            child: Text(text, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
           ),
         ],
       ),

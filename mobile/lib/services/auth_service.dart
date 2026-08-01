@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/worker.dart';
 
@@ -8,6 +7,7 @@ class AuthService {
   static const String _keyWorkerId = 'session_worker_id';
   static const String _keyWorkerName = 'session_worker_name';
   static const String _keyWorkerPhone = 'session_worker_phone';
+  static const String _keyWorkerEmployeeId = 'session_worker_employee_id';
   static const String _keyDeviceUuid = 'session_device_uuid';
   static const String _keyIsLoggedIn = 'session_is_logged_in';
 
@@ -21,6 +21,7 @@ class AuthService {
     await prefs.setString(_keyWorkerId, worker.id);
     await prefs.setString(_keyWorkerName, worker.fullName);
     await prefs.setString(_keyWorkerPhone, worker.phone);
+    await prefs.setString(_keyWorkerEmployeeId, worker.employeeId);
     await prefs.setString(_keyDeviceUuid, deviceUuid);
   }
 
@@ -34,6 +35,9 @@ class AuthService {
     final workerName = prefs.getString(_keyWorkerName);
     final workerPhone = prefs.getString(_keyWorkerPhone);
     final deviceUuid = prefs.getString(_keyDeviceUuid);
+    // Sessions saved before employee_id existed won't have this key —
+    // default to empty rather than treating them as "no session".
+    final workerEmployeeId = prefs.getString(_keyWorkerEmployeeId) ?? '';
 
     if (workerId == null || workerName == null || workerPhone == null || deviceUuid == null) {
       return null;
@@ -43,6 +47,7 @@ class AuthService {
       'worker_id': workerId,
       'worker_name': workerName,
       'worker_phone': workerPhone,
+      'worker_employee_id': workerEmployeeId,
       'device_uuid': deviceUuid,
     };
   }
@@ -55,6 +60,7 @@ class AuthService {
       id: session['worker_id']!,
       fullName: session['worker_name']!,
       phone: session['worker_phone']!,
+      employeeId: session['worker_employee_id'] ?? '',
     );
   }
 
@@ -64,13 +70,15 @@ class AuthService {
     return prefs.getString(_keyDeviceUuid);
   }
 
-  /// Clears all session data (logout).
+  /// Clears all session data (logout, or a forced re-login after the
+  /// backend reports DEVICE_MISMATCH — see dashboard_screen.dart).
   static Future<void> clearSession() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyIsLoggedIn);
     await prefs.remove(_keyWorkerId);
     await prefs.remove(_keyWorkerName);
     await prefs.remove(_keyWorkerPhone);
+    await prefs.remove(_keyWorkerEmployeeId);
     await prefs.remove(_keyDeviceUuid);
   }
 }

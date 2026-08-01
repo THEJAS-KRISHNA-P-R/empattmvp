@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/device_service.dart';
+import '../theme/app_colors.dart';
+import '../widgets/app_button.dart';
+import '../widgets/app_dialog.dart';
+import '../widgets/app_logo_mark.dart';
+import '../widgets/app_text_field.dart';
 import 'dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -14,6 +18,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
   final _phoneController = TextEditingController();
+  final _employeeIdController = TextEditingController();
   final _passcodeController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
@@ -25,7 +30,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   @override
   void initState() {
     super.initState();
-    _fadeCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+    _fadeCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _fadeCtrl.forward();
   }
@@ -33,6 +38,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   @override
   void dispose() {
     _phoneController.dispose();
+    _employeeIdController.dispose();
     _passcodeController.dispose();
     _fadeCtrl.dispose();
     super.dispose();
@@ -45,12 +51,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     setState(() => _isLoading = true);
 
     try {
-      // 1. Get hardware UUID
+      // 1. Get hardware ID
       final deviceUuid = await DeviceService.getHardwareUuid();
 
-      // 2. Call login API
+      // 2. Call login API — phone + employee ID + PIN, all three must
+      //    match the same worker record.
       final worker = await ApiService.login(
         phone: _phoneController.text.trim(),
+        employeeId: _employeeIdController.text.trim(),
         passcode: _passcodeController.text.trim(),
         deviceUuid: deviceUuid,
       );
@@ -79,33 +87,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   void _showError(String message) {
     if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E2E),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 24),
-            SizedBox(width: 8),
-            Text('Login Failed', style: TextStyle(color: Colors.white, fontSize: 16)),
-          ],
-        ),
-        content: Text(message, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK', style: TextStyle(color: Color(0xFF6366F1))),
-          ),
-        ],
-      ),
+    showAppAlert(
+      context,
+      title: 'Login Failed',
+      message: message,
+      icon: Icons.error_outline_rounded,
+      iconColor: AppColors.red600,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnim,
@@ -118,36 +112,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Logo / Brand
-                    Container(
-                      width: 72,
-                      height: 72,
-                      margin: const EdgeInsets.only(bottom: 24),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF6366F1).withValues(alpha: 0.4),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: const Center(
-                        child: Icon(Icons.location_on_rounded, color: Colors.white, size: 36),
-                      ),
-                    ),
+                    const Center(child: AppLogoMark(size: 72)),
+                    const SizedBox(height: 24),
 
                     const Text(
                       'EmpAtt',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
+                        color: AppColors.textPrimary,
+                        fontSize: 30,
                         fontWeight: FontWeight.bold,
                         letterSpacing: -0.5,
                       ),
@@ -156,107 +128,73 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     const SizedBox(height: 6),
                     const Text(
                       'Field Worker GPS Attendance',
-                      style: TextStyle(color: Color(0xFF64748B), fontSize: 14),
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
                       textAlign: TextAlign.center,
                     ),
 
-                    const SizedBox(height: 48),
+                    const SizedBox(height: 40),
 
-                    // Phone field
-                    _buildLabel('Phone Number'),
-                    const SizedBox(height: 8),
-                    TextFormField(
+                    AppTextField(
+                      label: 'Phone Number',
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: _inputDecoration(
-                        hint: '+1234567890',
-                        icon: Icons.phone_rounded,
-                      ),
+                      hint: '+1234567890',
+                      icon: Icons.phone_rounded,
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) return 'Enter your phone number';
                         return null;
                       },
                     ),
+                    const SizedBox(height: 18),
 
-                    const SizedBox(height: 20),
+                    AppTextField(
+                      label: 'Employee ID / Email',
+                      controller: _employeeIdController,
+                      keyboardType: TextInputType.text,
+                      textCapitalization: TextCapitalization.none,
+                      hint: 'e.g. EMP001',
+                      icon: Icons.badge_outlined,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Enter your employee ID or email';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 18),
 
-                    // Passcode field
-                    _buildLabel('4-Digit Passcode'),
-                    const SizedBox(height: 8),
-                    TextFormField(
+                    AppTextField(
+                      label: 'PIN / Password',
                       controller: _passcodeController,
-                      keyboardType: TextInputType.number,
                       obscureText: _obscurePasscode,
-                      maxLength: 4,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      style: const TextStyle(color: Colors.white, letterSpacing: 12),
-                      decoration: _inputDecoration(
-                        hint: '••••',
-                        icon: Icons.lock_rounded,
-                        counterText: '',
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePasscode ? Icons.visibility_off : Icons.visibility,
-                            color: const Color(0xFF475569),
-                            size: 20,
-                          ),
-                          onPressed: () => setState(() => _obscurePasscode = !_obscurePasscode),
+                      hint: 'Enter your PIN',
+                      icon: Icons.lock_outline_rounded,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePasscode ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                          color: AppColors.slate400,
+                          size: 20,
                         ),
+                        onPressed: () => setState(() => _obscurePasscode = !_obscurePasscode),
                       ),
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Enter your passcode';
-                        if (v.trim().length != 4) return 'Passcode must be exactly 4 digits';
+                        if (v == null || v.trim().isEmpty) return 'Enter your PIN';
+                        if (v.trim().length < 4) return 'PIN must be at least 4 characters';
                         return null;
                       },
                     ),
 
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 28),
 
-                    // Login button
-                    SizedBox(
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _handleLogin,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6366F1),
-                          disabledBackgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.4),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
-                                ),
-                              )
-                            : const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.smartphone_rounded, color: Colors.white, size: 20),
-                                  SizedBox(width: 10),
-                                  Text(
-                                    'Login & Bind Device',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                      ),
+                    AppButton(
+                      label: 'Log In',
+                      icon: Icons.login_rounded,
+                      loading: _isLoading,
+                      onPressed: _handleLogin,
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     const Text(
-                      'Your device will be permanently linked to this account on first login.',
-                      style: TextStyle(color: Color(0xFF475569), fontSize: 12),
+                      'The first time you log in, this account will be permanently linked to this phone.',
+                      style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -266,56 +204,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildLabel(String text) {
-    return Text(
-      text,
-      style: const TextStyle(
-        color: Color(0xFF94A3B8),
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.5,
-      ),
-    );
-  }
-
-  InputDecoration _inputDecoration({
-    required String hint,
-    required IconData icon,
-    String? counterText,
-    Widget? suffixIcon,
-  }) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(color: Color(0xFF334155)),
-      prefixIcon: Icon(icon, color: const Color(0xFF475569), size: 20),
-      suffixIcon: suffixIcon,
-      counterText: counterText,
-      filled: true,
-      fillColor: const Color(0xFF1E1E2E),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF2D2D3F)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF2D2D3F)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFEF4444)),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
-      ),
-      errorStyle: const TextStyle(color: Color(0xFFEF4444), fontSize: 12),
     );
   }
 }

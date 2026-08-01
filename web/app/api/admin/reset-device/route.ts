@@ -4,8 +4,10 @@ import { supabaseAdmin } from '@/lib/supabase';
 /**
  * POST /api/admin/reset-device
  *
- * Unbinds (resets) a worker's hardware UUID lock.
- * After this call, the worker can log in from any device (new device gets bound on next login).
+ * "Reset Phone Lock" — clears a worker's bound device, letting them log in
+ * from a new/replacement phone. Endpoint path kept as reset-device (an
+ * internal detail); user-facing text everywhere else says "Reset Phone
+ * Lock" per the spec's terminology.
  *
  * Body: { worker_id: string (UUID) }
  */
@@ -25,12 +27,12 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error('[reset-device] Update error:', error);
-      return NextResponse.json({ error: 'Failed to unbind device' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to reset phone lock' }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Device binding has been reset. Worker can now log in from any device.',
+      message: 'Phone lock has been reset. Worker can now log in from a new phone.',
     });
   } catch (err) {
     console.error('[reset-device] Unexpected error:', err);

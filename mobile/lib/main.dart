@@ -4,6 +4,7 @@ import 'services/auth_service.dart';
 import 'services/device_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'theme/app_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,11 +35,11 @@ class EmpAttApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6366F1),
-          brightness: Brightness.dark,
+          seedColor: AppColors.brand600,
+          brightness: Brightness.light,
         ),
+        scaffoldBackgroundColor: AppColors.background,
         useMaterial3: true,
-        fontFamily: 'sans-serif',
       ),
       home: isLoggedIn && session != null
           ? _SessionRestoreScreen(session: session!)
@@ -67,6 +68,10 @@ class _SessionRestoreScreenState extends State<_SessionRestoreScreen> {
   Future<void> _restore() async {
     try {
       final worker = await AuthService.getLoggedInWorker();
+      // Deliberately re-read the live hardware ID rather than trusting the
+      // cached one from SharedPreferences — this is what actually gets
+      // sent on the next clock event, so it should reflect the real
+      // device right now, not what it was when the session was saved.
       final deviceUuid = await DeviceService.getHardwareUuid();
 
       if (!mounted) return;
@@ -94,9 +99,9 @@ class _SessionRestoreScreenState extends State<_SessionRestoreScreen> {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      backgroundColor: Color(0xFF0F0F1A),
+      backgroundColor: AppColors.background,
       body: Center(
-        child: CircularProgressIndicator(color: Color(0xFF6366F1)),
+        child: CircularProgressIndicator(color: AppColors.brand600),
       ),
     );
   }

@@ -8,24 +8,26 @@ import {
   Calendar,
   LogOut,
   Wifi,
-  WifiOff,
   AlertTriangle,
   CheckCircle,
+  XCircle,
   Clock,
   RefreshCw,
-  Smartphone,
-  SmartphoneNfc,
+  Lock,
+  LockOpen,
+  UserPlus,
 } from 'lucide-react';
 import type { ClockLog } from './MapView';
+import AddWorkerModal from './AddWorkerModal';
 
 // Dynamic import for Leaflet (SSR incompatible)
 const MapView = dynamic(() => import('./MapView'), {
   ssr: false,
   loading: () => (
-    <div className="flex items-center justify-center h-full bg-gray-900 rounded-xl">
+    <div className="flex items-center justify-center h-full bg-white rounded-xl border border-slate-200">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto mb-3" />
-        <p className="text-gray-400 text-sm">Loading map…</p>
+        <div className="animate-spin rounded-full h-10 w-10 border-2 border-slate-200 border-t-brand-600 mx-auto mb-3" />
+        <p className="text-slate-500 text-sm">Loading map…</p>
       </div>
     </div>
   ),
@@ -35,6 +37,7 @@ interface Worker {
   id: string;
   full_name: string;
   phone: string;
+  employee_id: string;
   is_bound: boolean;
   latest_event: {
     event_type: 'IN' | 'OUT';
@@ -48,10 +51,10 @@ function todayString() {
 }
 
 function statusLabel(worker: Worker): { label: string; color: string } {
-  if (!worker.latest_event) return { label: 'No Activity Today', color: 'text-gray-400' };
+  if (!worker.latest_event) return { label: 'No activity today', color: 'text-slate-400' };
   if (worker.latest_event.event_type === 'IN')
-    return { label: `Working at ${worker.latest_event.site_name}`, color: 'text-green-400' };
-  return { label: 'Clocked Out', color: 'text-red-400' };
+    return { label: `Working at ${worker.latest_event.site_name}`, color: 'text-brand-700' };
+  return { label: 'Clocked out', color: 'text-slate-500' };
 }
 
 export default function AdminDashboard() {
@@ -63,6 +66,7 @@ export default function AdminDashboard() {
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [unbindingId, setUnbindingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [showAddWorker, setShowAddWorker] = useState(false);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type });
@@ -112,7 +116,7 @@ export default function AdminDashboard() {
   };
 
   const handleUnbind = async (worker: Worker) => {
-    if (!confirm(`Unbind device for ${worker.full_name}? They will be able to log in from any device.`)) return;
+    if (!confirm(`Reset phone lock for ${worker.full_name}? They will be able to log in from a new phone.`)) return;
     setUnbindingId(worker.id);
     try {
       const res = await fetch('/api/admin/reset-device', {
@@ -122,10 +126,10 @@ export default function AdminDashboard() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(`Device unbound for ${worker.full_name}`);
+        showToast(`Phone lock reset for ${worker.full_name}`);
         fetchWorkers();
       } else {
-        showToast(data.error ?? 'Failed to unbind', 'error');
+        showToast(data.error ?? 'Failed to reset phone lock', 'error');
       }
     } catch {
       showToast('Network error. Try again.', 'error');
@@ -146,40 +150,54 @@ export default function AdminDashboard() {
     ? statusLabel(selectedWorker)
     : { label: '', color: '' };
 
+  const anomalyCount = logs.filter(
+    (l) => l.is_mock_location || l.within_geofence === false || l.sequence_anomaly
+  ).length;
+
   return (
-    <div className="flex h-screen bg-gray-950 text-white overflow-hidden font-sans">
+    <div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden font-sans">
       {/* ── Toast ── */}
       {toast && (
         <div
-          className={`fixed top-4 right-4 z-[9999] flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-sm font-medium transition-all ${
-            toast.type === 'success'
-              ? 'bg-green-600 text-white'
-              : 'bg-red-600 text-white'
+          role="status"
+          aria-live="polite"
+          className={`fixed top-4 right-4 z-[9999] flex items-center gap-2.5 pl-3 pr-4 py-3 rounded-xl shadow-lg shadow-slate-900/10 text-sm font-medium bg-white border-l-4 text-slate-800 transition-all ${
+            toast.type === 'success' ? 'border-brand-600' : 'border-red-600'
           }`}
         >
-          {toast.type === 'success' ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
+          {toast.type === 'success' ? (
+            <CheckCircle size={18} className="text-brand-600 shrink-0" />
+          ) : (
+            <XCircle size={18} className="text-red-600 shrink-0" />
+          )}
           {toast.msg}
         </div>
       )}
 
       {/* ──────────────── SIDEBAR ──────────────── */}
-      <aside className="w-[320px] min-w-[320px] bg-gray-900 border-r border-gray-800 flex flex-col overflow-hidden">
+      <aside className="w-[320px] min-w-[320px] bg-white border-r border-slate-200 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-5 pt-6 pb-4 border-b border-gray-800">
+        <div className="px-5 pt-6 pb-4 border-b border-slate-200">
           <div className="flex items-center gap-2 mb-1">
-            <MapPin className="text-indigo-400" size={20} />
-            <h1 className="text-lg font-bold tracking-tight">EmpAtt</h1>
+            <div className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center shrink-0">
+              <MapPin className="text-white" size={15} strokeWidth={2.25} />
+            </div>
+            <h1 className="text-lg font-bold tracking-tight text-slate-900">EmpAtt</h1>
           </div>
-          <p className="text-xs text-gray-500">Field Worker Admin Dashboard</p>
+          <p className="text-xs text-slate-500">Field Worker Admin Dashboard</p>
         </div>
 
         {/* Date Selector */}
-        <div className="px-5 py-4 border-b border-gray-800">
-          <label className="text-xs text-gray-400 font-medium flex items-center gap-1.5 mb-2">
+        <div className="px-5 py-4 border-b border-slate-200">
+          <label
+            htmlFor="date-select"
+            className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-2 tracking-wide uppercase"
+          >
             <Calendar size={12} />
-            SELECT DATE
+            Select Date
           </label>
           <input
+            id="date-select"
             type="date"
             value={selectedDate}
             onChange={(e) => {
@@ -187,34 +205,51 @@ export default function AdminDashboard() {
               setSelectedWorker(null);
               setLogs([]);
             }}
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 transition-colors"
           />
         </div>
 
         {/* Workers List */}
         <div className="flex-1 overflow-y-auto">
           <div className="px-5 pt-4 pb-2 flex items-center justify-between">
-            <span className="text-xs text-gray-400 font-medium flex items-center gap-1.5">
+            <span className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 tracking-wide uppercase">
               <Users size={12} />
-              FIELD WORKERS ({workers.length})
+              Field Workers ({workers.length})
             </span>
-            <button
-              onClick={fetchWorkers}
-              disabled={loadingWorkers}
-              className="text-gray-500 hover:text-indigo-400 transition-colors"
-              title="Refresh"
-            >
-              <RefreshCw size={14} className={loadingWorkers ? 'animate-spin' : ''} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowAddWorker(true)}
+                aria-label="Add worker"
+                title="Add worker"
+                className="text-slate-400 hover:text-brand-600 transition-colors cursor-pointer p-1 -m-1 rounded"
+              >
+                <UserPlus size={15} />
+              </button>
+              <button
+                onClick={fetchWorkers}
+                disabled={loadingWorkers}
+                aria-label="Refresh worker list"
+                className="text-slate-400 hover:text-brand-600 transition-colors cursor-pointer p-1 -m-1 rounded"
+              >
+                <RefreshCw size={14} className={loadingWorkers ? 'animate-spin' : ''} />
+              </button>
+            </div>
           </div>
 
           {loadingWorkers ? (
             <div className="px-5 py-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mx-auto" />
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-200 border-t-brand-600 mx-auto" />
             </div>
           ) : workers.length === 0 ? (
-            <div className="px-5 py-8 text-center text-gray-500 text-sm">
-              No active workers found
+            <div className="px-5 py-8 text-center">
+              <p className="text-slate-400 text-sm mb-3">No workers yet</p>
+              <button
+                onClick={() => setShowAddWorker(true)}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-100 rounded-lg px-3 py-2 transition-colors cursor-pointer"
+              >
+                <UserPlus size={14} />
+                Add your first worker
+              </button>
             </div>
           ) : (
             <ul className="px-3 pb-4 space-y-1">
@@ -224,59 +259,70 @@ export default function AdminDashboard() {
 
                 return (
                   <li key={worker.id}>
-                    <div
+                    <button
+                      type="button"
                       onClick={() => handleSelectWorker(worker)}
-                      className={`rounded-xl px-3 py-3 cursor-pointer transition-all border ${
+                      aria-pressed={isSelected}
+                      className={`w-full text-left rounded-xl px-3 py-3 cursor-pointer transition-all border ${
                         isSelected
-                          ? 'bg-indigo-600/20 border-indigo-500/40'
-                          : 'border-transparent hover:bg-gray-800'
+                          ? 'bg-brand-50 border-brand-200'
+                          : 'border-transparent hover:bg-slate-50'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm truncate">{worker.full_name}</p>
-                          <p className="text-xs text-gray-500 truncate">{worker.phone}</p>
+                          <p className="font-semibold text-sm text-slate-900 truncate">{worker.full_name}</p>
+                          <p className="text-xs text-slate-500 truncate">{worker.phone} · {worker.employee_id}</p>
                           <p className={`text-xs mt-1 font-medium ${color}`}>{label}</p>
                         </div>
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
-                          {/* Device binding badge */}
+                          {/* Phone lock badge */}
                           <span
                             className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
                               worker.is_bound
-                                ? 'bg-blue-900/40 text-blue-400'
-                                : 'bg-gray-700 text-gray-400'
+                                ? 'bg-slate-100 text-slate-600'
+                                : 'bg-slate-50 text-slate-400'
                             }`}
-                            title={worker.is_bound ? 'Device bound' : 'No device bound'}
+                            title={worker.is_bound ? 'Phone locked' : 'No phone locked yet'}
                           >
                             {worker.is_bound ? (
-                              <SmartphoneNfc size={10} />
+                              <Lock size={10} />
                             ) : (
-                              <Smartphone size={10} />
+                              <LockOpen size={10} />
                             )}
-                            {worker.is_bound ? 'Bound' : 'Free'}
+                            {worker.is_bound ? 'Locked' : 'Not locked'}
                           </span>
                         </div>
                       </div>
 
-                      {/* Unbind button */}
+                      {/* Reset Phone Lock */}
                       {worker.is_bound && (
-                        <button
+                        <span
+                          role="button"
+                          tabIndex={0}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleUnbind(worker);
                           }}
-                          disabled={unbindingId === worker.id}
-                          className="mt-2 w-full text-[11px] text-red-400 border border-red-900/50 hover:bg-red-950/40 rounded-lg py-1 transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              handleUnbind(worker);
+                            }
+                          }}
+                          aria-disabled={unbindingId === worker.id}
+                          className="mt-2 w-full text-[11px] text-red-600 border border-red-100 hover:bg-red-50 rounded-lg py-1.5 transition-colors flex items-center justify-center gap-1 disabled:opacity-50 cursor-pointer"
                         >
                           {unbindingId === worker.id ? (
                             <RefreshCw size={10} className="animate-spin" />
                           ) : (
-                            <WifiOff size={10} />
+                            <LockOpen size={10} />
                           )}
-                          Unbind Device
-                        </button>
+                          Reset Phone Lock
+                        </span>
                       )}
-                    </div>
+                    </button>
                   </li>
                 );
               })}
@@ -285,15 +331,15 @@ export default function AdminDashboard() {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-gray-800 space-y-2">
+        <div className="px-5 py-3 border-t border-slate-200 space-y-2">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-red-400 border border-gray-800 hover:border-red-900/50 rounded-lg py-1.5 transition-colors"
+            className="w-full flex items-center justify-center gap-1.5 text-xs text-slate-500 hover:text-red-600 border border-slate-200 hover:border-red-200 hover:bg-red-50 rounded-lg py-1.5 transition-colors cursor-pointer min-h-[32px]"
           >
             <LogOut size={12} />
             Log Out
           </button>
-          <p className="text-[10px] text-gray-600 text-center">
+          <p className="text-[10px] text-slate-400 text-center">
             EmpAtt MVP · Field Worker Tracking
           </p>
         </div>
@@ -302,17 +348,17 @@ export default function AdminDashboard() {
       {/* ──────────────── MAIN MAP AREA ──────────────── */}
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Map Topbar */}
-        <div className="px-6 py-4 bg-gray-900 border-b border-gray-800 flex items-center justify-between">
+        <div className="px-6 py-4 bg-white border-b border-slate-200 flex items-center justify-between">
           <div>
             {selectedWorker ? (
               <>
-                <h2 className="font-bold text-base">{selectedWorker.full_name}</h2>
+                <h2 className="font-bold text-base text-slate-900">{selectedWorker.full_name}</h2>
                 <p className={`text-xs font-medium ${statusColor}`}>{statusText}</p>
               </>
             ) : (
               <>
-                <h2 className="font-bold text-base text-gray-400">Select a Worker</h2>
-                <p className="text-xs text-gray-600">Click a worker in the sidebar to view their journey</p>
+                <h2 className="font-bold text-base text-slate-400">Select a worker</h2>
+                <p className="text-xs text-slate-400">Click a worker in the sidebar to view their journey</p>
               </>
             )}
           </div>
@@ -320,18 +366,18 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-3">
             {selectedWorker && (
               <div className="text-right">
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-slate-500">
                   {logs.length} event{logs.length !== 1 ? 's' : ''} on {selectedDate}
                 </p>
-                {logs.some((l) => l.is_mock_location || l.within_geofence === false || l.sequence_anomaly) && (
-                  <p className="text-xs text-yellow-500 flex items-center gap-1 justify-end">
+                {anomalyCount > 0 && (
+                  <p className="text-xs text-amber-700 flex items-center gap-1 justify-end">
                     <AlertTriangle size={12} />
-                    {logs.filter((l) => l.is_mock_location || l.within_geofence === false || l.sequence_anomaly).length} anomal{logs.filter((l) => l.is_mock_location || l.within_geofence === false || l.sequence_anomaly).length !== 1 ? 'ies' : 'y'} detected
+                    {anomalyCount} anomal{anomalyCount !== 1 ? 'ies' : 'y'} detected
                   </p>
                 )}
               </div>
             )}
-            <div className="flex items-center gap-1.5 text-xs text-green-400 bg-green-950/30 border border-green-900/40 px-3 py-1.5 rounded-full">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-brand-700 bg-brand-50 border border-brand-100 px-3 py-1.5 rounded-full">
               <Wifi size={12} />
               Live
             </div>
@@ -341,55 +387,62 @@ export default function AdminDashboard() {
         {/* Map Container */}
         <div className="flex-1 p-4 relative">
           {!selectedWorker ? (
-            <div className="h-full rounded-xl bg-gray-900 border border-gray-800 flex items-center justify-center">
+            <div className="h-full rounded-xl bg-white border border-slate-200 flex items-center justify-center">
               <div className="text-center">
-                <MapPin size={48} className="text-gray-700 mx-auto mb-3" />
-                <p className="text-gray-500 font-medium">No worker selected</p>
-                <p className="text-gray-600 text-sm mt-1">
+                <MapPin size={40} className="text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-500 font-medium">No worker selected</p>
+                <p className="text-slate-400 text-sm mt-1">
                   Select a worker from the sidebar to view their GPS journey
                 </p>
               </div>
             </div>
           ) : loadingLogs ? (
-            <div className="h-full rounded-xl bg-gray-900 border border-gray-800 flex items-center justify-center">
+            <div className="h-full rounded-xl bg-white border border-slate-200 flex items-center justify-center">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto mb-3" />
-                <p className="text-gray-400 text-sm">Fetching GPS data…</p>
+                <div className="animate-spin rounded-full h-10 w-10 border-2 border-slate-200 border-t-brand-600 mx-auto mb-3" />
+                <p className="text-slate-500 text-sm">Fetching GPS data…</p>
               </div>
             </div>
           ) : logs.length === 0 ? (
-            <div className="h-full rounded-xl bg-gray-900 border border-gray-800 flex items-center justify-center">
+            <div className="h-full rounded-xl bg-white border border-slate-200 flex items-center justify-center">
               <div className="text-center">
-                <Clock size={48} className="text-gray-700 mx-auto mb-3" />
-                <p className="text-gray-500 font-medium">No clock events</p>
-                <p className="text-gray-600 text-sm mt-1">
+                <Clock size={40} className="text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-500 font-medium">No clock events</p>
+                <p className="text-slate-400 text-sm mt-1">
                   {selectedWorker.full_name} has no recorded events on {selectedDate}
                 </p>
               </div>
             </div>
           ) : (
-            <div className="h-full rounded-xl overflow-hidden border border-gray-800">
+            <div className="h-full rounded-xl overflow-hidden border border-slate-200">
               <MapView logs={logs} />
             </div>
           )}
         </div>
 
         {/* Legend */}
-        <div className="px-6 py-3 bg-gray-900 border-t border-gray-800 flex items-center gap-6 text-xs text-gray-400">
+        <div className="px-6 py-3 bg-white border-t border-slate-200 flex items-center gap-6 text-xs text-slate-500 flex-wrap">
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-green-500 inline-block" /> Clock IN
+            <span className="w-2.5 h-2.5 rounded-full bg-brand-600 inline-block" /> Clock IN
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> Clock OUT
+            <span className="w-2.5 h-2.5 rounded-full bg-red-600 inline-block" /> Clock OUT
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-yellow-500 inline-block" /> Anomaly (Mock GPS / Low Accuracy / Outside Geofence / Out of Sequence)
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-600 inline-block" /> Anomaly (Mock GPS / Low Accuracy / Outside Geofence / Out of Sequence)
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-8 border-b-2 border-dashed border-indigo-400 inline-block" /> Journey Path
+            <span className="w-8 border-b-2 border-dashed border-slate-400 inline-block" /> Journey Path
           </span>
         </div>
       </main>
+
+      {showAddWorker && (
+        <AddWorkerModal
+          onClose={() => setShowAddWorker(false)}
+          onCreated={fetchWorkers}
+        />
+      )}
     </div>
   );
 }

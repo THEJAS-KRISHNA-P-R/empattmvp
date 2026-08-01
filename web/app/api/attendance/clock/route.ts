@@ -65,16 +65,31 @@ export async function POST(request: Request) {
       .single();
 
     if (workerError || !worker) {
-      return NextResponse.json({ error: 'Worker not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Worker not found', code: 'WORKER_NOT_FOUND' },
+        { status: 404 }
+      );
     }
 
     if (!worker.is_active) {
-      return NextResponse.json({ error: 'Worker account is deactivated' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Worker account is deactivated', code: 'ACCOUNT_DEACTIVATED' },
+        { status: 403 }
+      );
     }
 
     if (worker.bound_device_id !== device_uuid) {
+      // This fires both for a genuinely different/spoofed device AND for
+      // the legitimate case of "admin unbound this device from the
+      // dashboard" — the mobile app treats DEVICE_MISMATCH as "your local
+      // session is stale, log in again" rather than just showing an error
+      // on every clock attempt with no path forward. See
+      // ApiService/dashboard_screen.dart on the mobile side.
       return NextResponse.json(
-        { error: 'Device UUID mismatch. This request is rejected for security.' },
+        {
+          error: 'Device UUID mismatch. This request is rejected for security.',
+          code: 'DEVICE_MISMATCH',
+        },
         { status: 403 }
       );
     }

@@ -16,24 +16,25 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-// Custom SVG circle icons
+// Custom SVG circle icons — colors pulled from the same design tokens as
+// the rest of the app (brand green / red / amber), not arbitrary hexes.
 function makeCircleIcon(color: string) {
   return L.divIcon({
     className: '',
     html: `<div style="
-      width:22px;height:22px;border-radius:50%;
+      width:20px;height:20px;border-radius:50%;
       background:${color};border:3px solid white;
-      box-shadow:0 2px 8px rgba(0,0,0,0.45);
+      box-shadow:0 1px 4px rgba(15,23,42,0.35);
     "></div>`,
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
-    popupAnchor: [0, -14],
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+    popupAnchor: [0, -13],
   });
 }
 
-const greenIcon = makeCircleIcon('#22c55e');
-const redIcon = makeCircleIcon('#ef4444');
-const warningIcon = makeCircleIcon('#f59e0b');
+const inIcon = makeCircleIcon('#0F8060'); // brand-600
+const outIcon = makeCircleIcon('#DC2626'); // red-600
+const warningIcon = makeCircleIcon('#D97706'); // amber-600
 
 export interface ClockLog {
   id: string;
@@ -76,7 +77,9 @@ export default function MapView({ logs }: Props) {
     log.within_geofence === false ||
     log.sequence_anomaly;
 
-  // Build polylines: connect IN → OUT pairs sequentially
+  // Build polylines: connect consecutive events sequentially, tracing the
+  // worker's full day (IN -> OUT -> IN -> OUT...), matching what the
+  // Journey Path legend entry actually shows.
   const polylineSegments: [number, number][][] = [];
   for (let i = 0; i < logs.length - 1; i++) {
     polylineSegments.push([
@@ -97,9 +100,13 @@ export default function MapView({ logs }: Props) {
       style={{ height: '100%', width: '100%' }}
       className="rounded-xl"
     >
+      {/* CARTO Positron — a light, low-saturation basemap, deliberately
+          chosen over stock OSM tiles so the map matches the app's light
+          theme instead of OSM's more saturated default styling. Free,
+          no API key, attribution required (included below). */}
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
       />
 
       <MapFocuser logs={logs} />
@@ -110,10 +117,10 @@ export default function MapView({ logs }: Props) {
           key={i}
           positions={segment}
           pathOptions={{
-            color: '#6366f1',
+            color: '#64748B', // slate-500 — neutral, doesn't compete with brand/status colors
             weight: 3,
             dashArray: '8 6',
-            opacity: 0.8,
+            opacity: 0.7,
           }}
         />
       ))}
@@ -121,7 +128,7 @@ export default function MapView({ logs }: Props) {
       {/* Pins for each event */}
       {logs.map((log) => {
         const warn = hasWarning(log);
-        const icon = warn ? warningIcon : log.event_type === 'IN' ? greenIcon : redIcon;
+        const icon = warn ? warningIcon : log.event_type === 'IN' ? inIcon : outIcon;
 
         return (
           <Marker
@@ -131,43 +138,43 @@ export default function MapView({ logs }: Props) {
           >
             <Popup>
               <div className="text-sm min-w-[180px]">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span
                     className={`font-bold text-xs px-2 py-0.5 rounded-full ${
                       log.event_type === 'IN'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-red-100 text-red-700'
+                        ? 'bg-brand-50 text-brand-700'
+                        : 'bg-red-50 text-red-700'
                     }`}
                   >
                     CLOCK {log.event_type}
                   </span>
                   {warn && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-semibold">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold">
                       ⚠ Anomaly
                     </span>
                   )}
                 </div>
-                <p className="text-gray-700 font-medium">{log.site_name}</p>
-                <p className="text-gray-500 text-xs mt-1">{formatTime(log.client_timestamp)}</p>
-                <p className="text-gray-400 text-xs">±{log.accuracy_meters.toFixed(0)}m accuracy</p>
+                <p className="text-slate-700 font-medium">{log.site_name}</p>
+                <p className="text-slate-500 text-xs mt-1">{formatTime(log.client_timestamp)}</p>
+                <p className="text-slate-400 text-xs">±{log.accuracy_meters.toFixed(0)}m accuracy</p>
                 {log.is_mock_location && (
-                  <p className="text-yellow-600 text-xs font-semibold mt-1">
-                    🚨 Mock GPS Detected
+                  <p className="text-amber-700 text-xs font-semibold mt-1">
+                    Mock GPS detected
                   </p>
                 )}
                 {log.accuracy_meters > 100 && !log.is_mock_location && (
-                  <p className="text-yellow-600 text-xs font-semibold mt-1">
-                    ⚠ Low GPS Accuracy
+                  <p className="text-amber-700 text-xs font-semibold mt-1">
+                    Low GPS accuracy
                   </p>
                 )}
                 {log.within_geofence === false && (
-                  <p className="text-yellow-600 text-xs font-semibold mt-1">
-                    📍 {log.distance_from_site_meters ?? '?'}m from site (outside geofence)
+                  <p className="text-amber-700 text-xs font-semibold mt-1">
+                    {log.distance_from_site_meters ?? '?'}m from site (outside geofence)
                   </p>
                 )}
                 {log.sequence_anomaly && (
-                  <p className="text-yellow-600 text-xs font-semibold mt-1">
-                    ⚠ Out of sequence (unexpected {log.event_type})
+                  <p className="text-amber-700 text-xs font-semibold mt-1">
+                    Out of sequence (unexpected {log.event_type})
                   </p>
                 )}
               </div>

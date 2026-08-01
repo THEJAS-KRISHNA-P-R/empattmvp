@@ -21,10 +21,14 @@ class ApiService {
 
   /// POST /api/auth/login
   ///
+  /// Three credentials required — phone, employee ID, and PIN all have to
+  /// match the same worker record (not PIN alone).
+  ///
   /// Returns the [Worker] on success.
   /// Throws [ApiException] with a user-facing message on failure.
   static Future<Worker> login({
     required String phone,
+    required String employeeId,
     required String passcode,
     required String deviceUuid,
   }) async {
@@ -34,6 +38,7 @@ class ApiService {
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
             'phone': phone,
+            'employee_id': employeeId,
             'passcode': passcode,
             'device_uuid': deviceUuid,
           }),
@@ -44,16 +49,12 @@ class ApiService {
 
     if (response.statusCode == 200) {
       return Worker.fromJson(body['worker'] as Map<String, dynamic>);
-    } else if (response.statusCode == 401) {
-      throw ApiException('Invalid phone number or passcode.');
-    } else if (response.statusCode == 403) {
-      throw ApiException(
-        'This account is locked to a different physical device.\n'
-        'Contact admin to reset.',
-      );
-    } else {
-      throw ApiException(body['error']?.toString() ?? 'Login failed. Try again.');
     }
+
+    throw ApiException(
+      body['error']?.toString() ?? 'Login failed. Try again.',
+      code: body['code']?.toString(),
+    );
   }
 
   // ──────────────────────────────────────────────────
@@ -96,11 +97,15 @@ class ApiService {
 
     if (response.statusCode == 200) {
       return body['message']?.toString() ?? 'Clocked $eventType successfully!';
-    } else if (response.statusCode == 403) {
-      throw ApiException('Security error: device mismatch. Contact admin.');
-    } else {
-      throw ApiException(body['error']?.toString() ?? 'Failed to record clock event.');
     }
+
+    // `code` carries DEVICE_MISMATCH / ACCOUNT_DEACTIVATED / etc — the
+    // dashboard screen uses this to decide whether to force a re-login
+    // instead of just showing an error on every future clock attempt.
+    throw ApiException(
+      body['error']?.toString() ?? 'Failed to record clock event.',
+      code: body['code']?.toString(),
+    );
   }
 
   // ──────────────────────────────────────────────────
@@ -120,15 +125,19 @@ class ApiService {
       final list = body['sites'] as List<dynamic>;
       return list.map((s) => WorkSite.fromJson(s as Map<String, dynamic>)).toList();
     } else {
-      throw ApiException('Failed to load work sites.');
+      throw const ApiException('Failed to load work sites.');
     }
   }
 }
 
-/// Typed exception for user-facing API error messages.
+/// Typed exception for user-facing API error messages. [code] is the
+/// machine-readable error code from the backend (e.g. DEVICE_MISMATCH),
+/// when present — see app/api/auth/login/route.ts and
+/// app/api/attendance/clock/route.ts on the web side for the full list.
 class ApiException implements Exception {
   final String message;
-  const ApiException(this.message);
+  final String? code;
+  const ApiException(this.message, {this.code});
 
   @override
   String toString() => message;

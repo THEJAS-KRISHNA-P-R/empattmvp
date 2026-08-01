@@ -251,3 +251,220 @@ for `android_id`/`sqflite`/`path`/`connectivity_plus` — since it can't be
 regenerated correctly without a real `flutter pub get`, leaving it in place
 would have been a lockfile that silently disagreed with `pubspec.yaml`.
 Running `flutter pub get` will generate a fresh, correct one.
+
+---
+
+# Session 2 — Device Lock Hardening, Admin Worker Management, Light-Mode Redesign
+
+Continuation of the same audit-and-fix work above. This session covered three
+things asked for together: (1) make device lock airtight and give the admin
+a way to actually create workers, (2) a full light-mode redesign of both
+portals with no purple/violet, and (3) a brand mark + real favicon/app icon
+files. Everything below was verified the same way as Session 1 — real
+Postgres, real `npm run build`/`lint`, and disclosed plainly where that
+wasn't possible (Flutter).
+
+## Device lock — closed the second half of the original spec
+
+Session 1 fixed *which ID* gets used for device binding. This session fixed
+*enforcement*, and found it was only half-implemented.
+
+- **Real bug, caught by actually running the SQL**: `schema.sql`'s
+  `idx_clock_logs_date` index used `client_timestamp::DATE`, which Postgres
+  rejects — that cast depends on session timezone, so it isn't `IMMUTABLE`.
+  Fixed by casting through `AT TIME ZONE 'UTC'` first. This wasn't visible
+  from reading the file; it only surfaced when I installed a real Postgres
+  in the sandbox and ran the schema against it.
+- **The missing direction of "1:1"**: the original spec's Rule 1 has three
+  parts — Worker A can't switch phones, Worker B can't use Worker A's
+  phone, AND (this one) a phone already bound to someone can't be claimed
+  by a second worker. Only the first two were enforced. Added
+  `idx_workers_bound_device_unique` — a partial unique index — as the real,
+  race-safe backstop, plus an application-level check in `login/route.ts`
+  that gives a clear error before the database ever has to reject it.
+- **Proved it two ways, not just read the code**: (1) seeded two workers,
+  tried to bind both to the same device ID, watched Postgres reject the
+  second one. (2) Seeded a database with that exact collision already
+  present — simulating what the old `device_info_plus` bug could have
+  actually produced in a live deployment — and confirmed `migration_v2.sql`
+  doesn't crash; it skips the constraint, names the exact workers/device
+  involved, and lets you resolve and re-run.
+- **A worker whose phone gets unbound now finds out.** Previously, if an
+  admin reset a worker's phone lock, the worker's app kept behaving as if
+  logged in and every clock attempt just failed silently with a generic
+  error forever — no path forward. Added machine-readable `code` fields
+  (`DEVICE_MISMATCH`, `DEVICE_ALREADY_CLAIMED`, `ACCOUNT_DEACTIVATED`, etc.)
+  to every auth/clock error response, and the mobile app now detects
+  `DEVICE_MISMATCH`/`ACCOUNT_DEACTIVATED` specifically and forces a clean
+  logout with an explanation, instead of just showing an error.
+
+## Admin worker management (was entirely missing)
+
+The live deployment had zero way to create a worker — confirmed directly
+from the screenshot showing "FIELD WORKERS (0)" with no add option. Built:
+
+- `POST /api/admin/workers` — creates a worker, hashes the PIN immediately,
+  returns the plaintext PIN exactly once in the response (never stored,
+  never retrievable again after that).
+- An "Add Worker" modal on the dashboard (`AddWorkerModal.tsx`) with Copy
+  and "Share via WhatsApp" buttons — the WhatsApp button opens a `wa.me`
+  deep link pre-addressed to the worker's own phone number with the
+  credentials pre-filled, so the admin doesn't have to switch apps and
+  retype anything.
+- An empty-state call-to-action ("Add your first worker") so the exact
+  situation in the screenshot has an obvious next step instead of a dead
+  end.
+
+## Login changed from 2 factors to 3, per your updated spec
+
+Phone + PIN became phone + employee ID (or email) + PIN — all three now
+have to match the same worker row, not just the PIN. This is a real
+increase in login friction for a low-tech field-worker audience, worth
+naming plainly: it's what was specified, and the employee_id is deliberately
+unvalidated free text (not required to be a real email) so an admin can
+just assign "EMP001" instead of needing to invent email addresses for
+workers who don't have one — but it is one more thing a worker has to get
+right on a small phone keyboard. If login friction turns out to be a
+problem in practice, the two-factor version (phone + PIN, device lock
+doing the rest of the security work) is a reasonable fallback.
+
+- `employee_id` added to the schema (unique, indexed), with a migration
+  path for the live DB that auto-generates a placeholder ID for existing
+  workers (`EMP-<short id>`) rather than requiring manual backfill.
+- Terminology changed to match your spec throughout: "Unbind Device" is now
+  "Reset Phone Lock" everywhere in the UI (the API route path stayed
+  `reset-device` — internal detail, not user-facing).
+
+## Light-mode redesign, no purple/violet, YourFee-aligned palette
+
+- Pulled the real YourFee brand green (`RGB(27,166,126)`) and Plus Jakarta
+  Sans from memory, then **computed actual WCAG contrast ratios in Python**
+  for every color pairing before locking in shades — the raw brand color
+  fails 4.5:1 for white button text, so interactive elements use a
+  darkened `#0F8060` (4.91:1) while the true brand hex is kept for larger
+  accents. Neutrals are a slate scale; status colors (red/amber) are
+  unchanged in meaning from Session 1, just re-tuned for light backgrounds.
+- Rebuilt: `globals.css` (light-only tokens, explicitly no
+  `prefers-color-scheme: dark` override), `layout.tsx`, `admin/login/page.tsx`,
+  `AdminDashboard.tsx`, `MapView.tsx` (switched to CARTO Positron light
+  basemap instead of stock OSM tiles, custom SVG circle markers instead of
+  default Leaflet pins).
+- Used the `ui-ux-pro-max` skill's search tooling for style/color reference
+  rather than freehanding the palette.
+
+## Flutter: light mode + a small custom component library
+
+Per "lightweight custom components rather than heavy libraries" — no UI kit
+package was added. Built plain, hand-styled widgets instead
+(`lib/widgets/`: `AppButton`, `AppTextField`, `AppCard`, `AppLogoMark`,
+`app_dialog.dart`'s `showAppAlert`), all reading from a single
+`lib/theme/app_colors.dart` token file that mirrors the web palette exactly.
+`login_screen.dart`, `dashboard_screen.dart`, and `main.dart` (which still
+had the old dark theme + indigo seed color) were all rebuilt on top of
+these.
+
+**Two real bugs caught by manual review that would have been compile
+errors**, in lieu of being able to run `flutter analyze`:
+- `auth_service.dart` manually reconstructs a `Worker` object in
+  `getLoggedInWorker()` — adding a required `employeeId` field to `Worker`
+  would have broken this call site silently until someone tried to log
+  back into a saved session. Fixed alongside the model change.
+- `app_text_field.dart` used `TextInputFormatter` as a type but only had an
+  `export` statement for `flutter/services.dart`, not an `import` — an
+  `export` doesn't bring symbols into scope for the exporting file itself.
+  Verified this distinction against official Flutter team code samples
+  before fixing it (every real Flutter example that uses
+  `TextInputFormatter` imports `services.dart` directly and explicitly,
+  which is exactly the tell that `material.dart` doesn't quietly cover it).
+
+Also ran a systematic cross-check script over every Dart file — for a list
+of ~15 signal identifiers (`SystemChrome`, `Position`, `Connectivity`,
+`Database`, etc.), confirmed each file using one also directly imports the
+package that defines it, not just relying on a transitive re-export. One
+more flag came back, checked, and was a false positive (the word
+"SharedPreferences" appearing only inside a code comment). A rough
+brace/paren/bracket balance check ran clean across every file too. This is
+the honest ceiling of what's verifiable without a Dart compiler in this
+sandbox — confirmed again this session that Flutter's engine artifacts are
+served from Google Cloud Storage, outside the sandbox's network allowlist,
+so `flutter analyze`/`pub get`/`test` still cannot actually run here.
+
+## Brand mark, favicon, and app icon
+
+Hand-drawn an original SVG mark (rounded square, brand green, a geometric
+pin built from arcs and a punched circle — not a copy of Material's pin
+glyph) rather than sourcing existing artwork. Verified it actually renders
+correctly two ways: visually, and by sampling pixel colors at known
+coordinates in Python (confirmed transparent rounded corners, white pin
+fill, and the green punched-circle all land where the path math says they
+should).
+
+Generated from that one SVG source, not hand-built per size:
+- Web: `app/favicon.ico` (real multi-resolution ICO — 16/32/48px, verified
+  with `identify`), `app/icon.svg` (modern browsers use this directly, via
+  Next.js's file-convention auto-detection), `app/apple-icon.png` (180px).
+- Mobile: `ic_launcher.png` at all five Android densities (mdpi 48px
+  through xxxhdpi 192px, each verified at its exact required pixel size),
+  replacing Flutter's default placeholder icon. Standard launcher icons,
+  not adaptive-icon XML layers — proportionate for a sideloaded APK, not
+  going through Play Store's stricter icon requirements. Source SVG and a
+  512px master PNG kept in `mobile/assets/branding/` for future
+  regeneration.
+
+## Files touched this session
+
+**web/**: `supabase/schema.sql`, `supabase/migration_v2.sql`,
+`app/api/auth/login/route.ts`, `app/api/attendance/clock/route.ts`,
+`app/api/admin/workers/route.ts` (added POST), `app/api/admin/reset-device/route.ts`
+(terminology), `app/globals.css`, `app/layout.tsx`, `app/admin/login/page.tsx`,
+`app/favicon.ico`, `app/icon.svg`, `app/apple-icon.png` (new),
+`components/admin/AdminDashboard.tsx`, `components/admin/MapView.tsx`,
+`components/admin/AddWorkerModal.tsx` (new)
+
+**mobile/**: `lib/theme/app_colors.dart` (new), `lib/widgets/*` (new:
+`app_button.dart`, `app_text_field.dart`, `app_card.dart`,
+`app_logo_mark.dart`, `app_dialog.dart`), `lib/main.dart`,
+`lib/screens/login_screen.dart`, `lib/screens/dashboard_screen.dart`,
+`lib/models/worker.dart`, `lib/services/auth_service.dart`,
+`lib/services/api_service.dart`, `android/app/src/main/res/mipmap-*/ic_launcher.png`
+(all 5 densities), `assets/branding/` (new)
+
+## What changed about verification this session
+
+Installed a real local PostgreSQL 16 + PostGIS in the sandbox specifically
+to test schema and constraint behavior against actual query execution,
+not just read the SQL and reason about it — this is what caught the
+IMMUTABLE index bug and let me prove the device-uniqueness constraint
+under two realistic scenarios (clean DB, and a DB with the exact
+corruption the old bug could have caused). This is a meaningfully deeper
+verification bar than Session 1 had for the schema layer specifically; the
+web build/lint verification approach is unchanged and was re-run clean
+after every batch of changes.
+
+## Post-packaging review pass — one more real bug caught
+
+Before finalizing, ran a systematic method-signature and field-name
+cross-check across every service call in both screens (not just imports
+this time — actual parameter names and types). Found a third real bug:
+
+- **`dashboard_screen.dart` declared `final Position location;` in
+  `_handleClock`, but `LocationService.getCurrentLocation()` returns
+  `Future<LocationResult>`** — a app-defined wrapper class, not
+  geolocator's `Position`. The two types don't have the same fields
+  either (`Position.accuracy` vs `LocationResult.accuracyMeters`), so this
+  would have failed to compile. Fixed by correcting the declared type.
+  Re-verified the *other* use of `Position` in the same file (`_lastPosition`,
+  fed by the live GPS stream, which genuinely does return `Position`) uses
+  `.accuracy`/`.isMocked` correctly — that one was right; only the
+  one-shot `_handleClock` location fetch had the mismatch.
+- Separately verified `Color.withValues(alpha: ...)` (used in
+  `app_logo_mark.dart` and the Clock IN/OUT button disabled states) is a
+  real, current `dart:ui` API — introduced when `withOpacity` was
+  deprecated — rather than assuming it was safe to use.
+
+This is now three real, compiler-would-have-caught bugs found through
+manual cross-referencing this session (missing import, required-field
+break, and this type mismatch) — logged here rather than glossed over,
+since the whole point of this level of review is to be honest about what
+manual verification actually catches versus what it might still miss
+without a real `flutter analyze` run.

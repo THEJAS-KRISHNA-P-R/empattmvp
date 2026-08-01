@@ -39,21 +39,25 @@ Field worker attendance/GPS tracking backend + admin dashboard.
 
 ## Demo credentials (seeded by schema.sql)
 
-| Worker | Phone | Passcode |
-|---|---|---|
-| John Field Worker | +1234567890 | 1234 |
-| Sarah Inspector | +0987654321 | 5678 |
+| Worker | Phone | Employee ID | PIN |
+|---|---|---|---|
+| John Field Worker | +1234567890 | EMP001 | 1234 |
+| Sarah Inspector | +0987654321 | EMP002 | 5678 |
 
-These are for the mobile app login screen, not the admin dashboard.
+These are for the mobile app login screen (all three fields required), not
+the admin dashboard. To add real workers, use the "Add Worker" button on
+the dashboard — it hashes the PIN, shows it to you once, and can share it
+straight to the worker's WhatsApp.
 
 ## API surface
 
-- `POST /api/auth/login` — worker login + device binding (mobile app)
+- `POST /api/auth/login` — worker login + device binding (mobile app; requires phone + employee_id + PIN)
 - `POST /api/attendance/clock` — clock IN/OUT (mobile app)
 - `GET /api/sites` — active work sites (mobile app; deliberately public, see
   the comment in that route for why)
 - `POST /api/admin/login` / `POST /api/admin/logout` — admin session
 - `GET /api/admin/workers` — worker list + status (admin dashboard)
+- `POST /api/admin/workers` — create a new worker (admin dashboard)
 - `GET /api/admin/clock-logs` — a worker's events for a date (admin dashboard)
 - `POST /api/admin/reset-device` — unbind a worker's device (admin dashboard)
 
