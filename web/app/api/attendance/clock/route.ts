@@ -102,8 +102,31 @@ export async function POST(request: Request) {
       .single();
 
     if (siteError || !site || !site.is_active) {
-      return NextResponse.json({ error: 'Work site not found' }, { status: 404 });
+      // A deleted site must not block a clock-OUT — the worker needs to be
+      // able to end their shift even if an admin removed the site.
+      if (event_type === 'OUT') {
+        // Allow the OUT to proceed without geofence checks
+        const { error: insertError } = await supabaseAdmin.from('clock_logs').insert({
+          worker_id,
+          site_id,
+          event_type: 'OUT',
+          latitude: Number(latitude),
+          longitude: Number(longitude),
+          accuracy_meters: Number(accuracy_meters ?? 0),
+          is_mock_location: Boolean(is_mock_location),
+          distance_from_site_meters: 0,
+          within_geofence: false,
+          sequence_anomaly: true, // flag it since site is gone
+          client_timestamp,
+        });
+        if (insertError) {
+          return NextResponse.json({ error: 'Failed to record clock out' }, { status: 500 });
+        }
+        return NextResponse.json({ success: true, message: 'Clocked OUT successfully!' });
+      }
+      return NextResponse.json({ error: 'Work site not found or inactive' }, { status: 404 });
     }
+
 
     // --- 3. Geofence check (flag only) ---
     const distanceMeters = haversineDistanceMeters(
