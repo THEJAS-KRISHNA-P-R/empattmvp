@@ -52,12 +52,57 @@ class LocationService {
     }
 
     // 3. Get position — high accuracy for tight geofencing
-    final position = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        timeLimit: Duration(seconds: 15),
-      ),
-    );
+    // GOOGLE MAPS STYLE STRATEGY:
+    // First, check if the phone already knows exactly where it is (from another app or recent scan).
+    // If it's less than 30 seconds old, trust it immediately. This skips the painful 15-second hang.
+    try {
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        final age = DateTime.now().difference(lastKnown.timestamp);
+        if (age.inSeconds < 30) {
+          return LocationResult(
+            latitude: lastKnown.latitude,
+            longitude: lastKnown.longitude,
+            accuracyMeters: lastKnown.accuracy,
+            isMocked: lastKnown.isMocked,
+          );
+        }
+      }
+    } catch (_) {
+      // Ignore errors fetching last known, proceed to full fetch
+    }
+
+    // If no recent cache, force a fresh satellite lock
+    Position? position;
+    try {
+      position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+    } catch (e) {
+      if (e.toString().contains('TimeoutException')) {
+        // Fallback: If it timed out, is there *any* older cached position we can use?
+        final fallback = await Geolocator.getLastKnownPosition();
+        if (fallback != null) {
+          final age = DateTime.now().difference(fallback.timestamp);
+          if (age.inMinutes <= 2) {
+            return LocationResult(
+              latitude: fallback.latitude,
+              longitude: fallback.longitude,
+              accuracyMeters: fallback.accuracy,
+              isMocked: fallback.isMocked,
+            );
+          }
+        }
+        throw Exception(
+          'Could not acquire a fresh GPS signal.\n'
+          'Please step outdoors or check your location settings.',
+        );
+      }
+      rethrow;
+    }
 
     return LocationResult(
       latitude: position.latitude,

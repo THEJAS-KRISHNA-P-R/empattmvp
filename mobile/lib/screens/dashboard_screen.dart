@@ -99,11 +99,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Status & Timer
   // ───────────────────────────────────────
   void _syncSelectedSiteWithStatus() {
-    if (_currentStatus == 'IN' && _clockedInSiteId != null && _sites.isNotEmpty) {
+    if (_currentStatus == 'IN' && _clockedInSiteId != null) {
       try {
-        _selectedSite = _sites.firstWhere((s) => s.id == _clockedInSiteId);
-        _userSelectedSite = true;
-      } catch (_) {}
+        if (_sites.isNotEmpty) {
+          _selectedSite = _sites.firstWhere((s) => s.id == _clockedInSiteId);
+        }
+      } catch (_) {
+        // Ghost Site fallback - the site was deleted/deactivated from the server,
+        // but the worker is still clocked into it.
+        final ghostSite = WorkSite(
+          id: _clockedInSiteId!,
+          name: 'Current Site (Archived)',
+          latitude: _lastPosition?.latitude ?? 0.0,
+          longitude: _lastPosition?.longitude ?? 0.0,
+          radiusMeters: 99999, // Disable geofencing for ghost sites to allow clock out
+        );
+        _sites.insert(0, ghostSite);
+        _selectedSite = ghostSite;
+      }
+      _userSelectedSite = true;
     }
   }
 
@@ -770,6 +784,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           _infoRow('Tap CLOCK OUT when you leave.'),
                           _infoRow('GPS must be enabled for attendance to record.'),
                         ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 56,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => HistoryScreen(workerId: widget.worker.id)),
+                          );
+                        },
+                        icon: const Icon(Icons.history_rounded, size: 20),
+                        label: const Text(
+                          'VIEW MY ATTENDANCE HISTORY',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.brand600,
+                          side: const BorderSide(color: AppColors.brand600, width: 2),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
                       ),
                     ),
                   ],
