@@ -34,6 +34,8 @@ export default function ManageSitesModal({ onClose }: Props) {
   const [longitude, setLongitude] = useState('');
   const [radius, setRadius] = useState('200');
 
+  const [inputMode, setInputMode] = useState<'map' | 'link'>('map');
+
   const [adding, setAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +67,7 @@ export default function ManageSitesModal({ onClose }: Props) {
     const rad = parseInt(radius, 10);
 
     if (isNaN(lat) || isNaN(lng) || isNaN(rad)) {
-      setError('Latitude, longitude, and radius must be valid numbers');
+      setError('Please select a valid location and radius first.');
       return;
     }
 
@@ -118,155 +120,184 @@ export default function ManageSitesModal({ onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 sm:p-0">
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 sm:p-6 lg:p-12">
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
       
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
-          <h2 className="text-lg font-bold text-slate-900">Manage Work Sites</h2>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Manage Work Sites</h2>
+            <p className="text-sm text-slate-500 mt-1">Add, view, and remove location boundaries for worker clock-ins.</p>
+          </div>
           <button
             onClick={onClose}
             className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-lg transition-colors cursor-pointer"
           >
-            <X size={18} />
+            <X size={24} />
           </button>
         </div>
 
         <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
-          {/* Add Site Form */}
-          <div className="md:w-1/2 p-6 border-b md:border-b-0 md:border-r border-slate-100 bg-slate-50 overflow-y-auto">
-            <h3 className="font-semibold text-slate-800 mb-4 text-sm uppercase tracking-wide">Add New Site</h3>
-            <form onSubmit={handleAddSite} className="flex flex-col gap-4">
+          {/* ──────────────── ADD SITE FORM ──────────────── */}
+          <div className="md:w-1/2 p-6 border-b md:border-b-0 md:border-r border-slate-100 bg-slate-50/50 overflow-y-auto flex flex-col">
+            <h3 className="font-semibold text-slate-800 mb-5 text-sm uppercase tracking-wide">Add New Site</h3>
+            <form onSubmit={handleAddSite} className="flex flex-col gap-5 flex-1">
               {error && (
                 <div className="p-3 bg-red-50 border border-red-100 rounded-lg flex items-start gap-2 text-red-700 text-sm">
                   <AlertCircle size={16} className="mt-0.5 shrink-0" />
                   <p>{error}</p>
                 </div>
               )}
+              
               <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Site Name</label>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 block">Site Name</label>
                 <input
                   required
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Project Alpha"
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
+                  className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-900 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 shadow-sm"
                 />
               </div>
+
               <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1.5 block flex items-center justify-between">
-                  <span>Paste Map Link (Optional)</span>
-                  <span className="text-[10px] text-brand-600 font-normal">Auto-fills coordinates</span>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 block">Location Method</label>
+                <div className="flex bg-slate-200/50 p-1 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setInputMode('map')}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${inputMode === 'map' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    Drop Pin on Map
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInputMode('link')}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${inputMode === 'link' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    Paste Link
+                  </button>
+                </div>
+              </div>
+
+              {inputMode === 'link' && (
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Google Maps or OSM Link</label>
+                  <input
+                    type="text"
+                    placeholder="Paste link here..."
+                    className="w-full px-4 py-2.5 bg-brand-50/50 border border-brand-200 rounded-lg text-sm font-medium text-brand-900 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 placeholder-brand-300"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const gmMatch = val.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || val.match(/\?q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+                      const osmMatch = val.match(/map=\d+\/(-?\d+\.\d+)\/(-?\d+\.\d+)/);
+                      const latLngMatch = val.match(/(-?\d+\.\d+)(?:,|\s)+(-?\d+\.\d+)/);
+                      const match = gmMatch || osmMatch || latLngMatch;
+                      if (match) {
+                        setLatitude(match[1]);
+                        setLongitude(match[2]);
+                        setTimeout(() => { e.target.value = ''; }, 500);
+                      }
+                    }}
+                  />
+                  {!latitude && (
+                    <p className="text-[10px] text-slate-500 mt-2">Paste a link to extract coordinates and see preview below.</p>
+                  )}
+                </div>
+              )}
+
+              <div className="flex-1 min-h-[200px] relative rounded-xl border border-slate-200 overflow-hidden shrink-0 shadow-inner bg-slate-100">
+                {(inputMode === 'map' || (inputMode === 'link' && latitude)) ? (
+                  <SitePickerMap
+                    latitude={latitude ? parseFloat(latitude) : null}
+                    longitude={longitude ? parseFloat(longitude) : null}
+                    radiusMeters={parseInt(radius, 10) || 200}
+                    readOnly={inputMode === 'link'}
+                    onLocationSelect={(lat, lng) => {
+                      if (inputMode === 'link') return;
+                      setLatitude(lat.toFixed(6));
+                      setLongitude(lng.toFixed(6));
+                    }}
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-slate-400">
+                    <div className="text-center">
+                      <MapPin size={32} className="mx-auto mb-2 opacity-50" />
+                      <p className="text-sm font-medium">Waiting for link...</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 block flex justify-between">
+                  <span>Geofence Radius (meters)</span>
+                  <span className="text-brand-600">{radius}m</span>
                 </label>
                 <input
-                  type="text"
-                  placeholder="Paste Google Maps or OSM link..."
-                  className="w-full px-3 py-2 bg-brand-50/50 border border-brand-100 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 placeholder-slate-400"
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    const gmMatch = val.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || val.match(/\?q=(-?\d+\.\d+),(-?\d+\.\d+)/);
-                    const osmMatch = val.match(/map=\d+\/(-?\d+\.\d+)\/(-?\d+\.\d+)/);
-                    const latLngMatch = val.match(/(-?\d+\.\d+)(?:,|\s)+(-?\d+\.\d+)/);
-                    const match = gmMatch || osmMatch || latLngMatch;
-                    if (match) {
-                      setLatitude(match[1]);
-                      setLongitude(match[2]);
-                      // Clear the input after successful extraction to avoid clutter
-                      setTimeout(() => { e.target.value = ''; }, 500);
-                    }
-                  }}
-                />
-              </div>
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Latitude</label>
-                  <input
-                    required
-                    type="number"
-                    step="any"
-                    value={latitude}
-                    onChange={(e) => setLatitude(e.target.value)}
-                    placeholder="12.9716"
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Longitude</label>
-                  <input
-                    required
-                    type="number"
-                    step="any"
-                    value={longitude}
-                    onChange={(e) => setLongitude(e.target.value)}
-                    placeholder="77.5946"
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Geofence Radius (meters)</label>
-                <input
                   required
-                  type="number"
+                  type="range"
                   min="50"
-                  max="10000"
+                  max="5000"
+                  step="50"
                   value={radius}
                   onChange={(e) => setRadius(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
+                  className="w-full accent-brand-600"
                 />
               </div>
-              <div className="h-48 relative rounded-lg border border-slate-200 overflow-hidden shrink-0">
-                <SitePickerMap
-                  latitude={latitude ? parseFloat(latitude) : null}
-                  longitude={longitude ? parseFloat(longitude) : null}
-                  radiusMeters={parseInt(radius, 10) || 200}
-                  onLocationSelect={(lat, lng) => {
-                    setLatitude(lat.toFixed(6));
-                    setLongitude(lng.toFixed(6));
-                  }}
-                />
-              </div>
+              
               <button
                 type="submit"
-                disabled={adding}
-                className="mt-2 w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                disabled={adding || !latitude}
+                className="w-full py-3 mt-auto bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-xl shadow-md shadow-brand-600/20 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {adding ? <RefreshCw size={16} className="animate-spin" /> : <Plus size={16} />}
-                Add Site
+                {adding ? <RefreshCw size={18} className="animate-spin" /> : <Plus size={18} strokeWidth={2.5} />}
+                Add Work Site
               </button>
             </form>
           </div>
 
-          {/* List of Sites */}
-          <div className="md:w-1/2 flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 bg-white shrink-0">
-              <h3 className="font-semibold text-slate-800 text-sm uppercase tracking-wide">Existing Sites</h3>
+          {/* ──────────────── EXISTING SITES ──────────────── */}
+          <div className="md:w-1/2 flex flex-col overflow-hidden bg-white">
+            <div className="px-6 py-5 border-b border-slate-100 shrink-0">
+              <h3 className="font-semibold text-slate-800 text-sm uppercase tracking-wide">Existing Sites ({sites.length})</h3>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 bg-white">
+            <div className="flex-1 overflow-y-auto p-6">
               {loading ? (
                 <div className="flex justify-center p-8">
                   <RefreshCw size={24} className="animate-spin text-brand-600" />
                 </div>
               ) : sites.length === 0 ? (
-                <div className="text-center p-8 text-slate-500">
-                  <MapPin size={32} className="mx-auto mb-2 text-slate-300" />
-                  <p>No work sites yet.</p>
+                <div className="text-center p-12 text-slate-500 border-2 border-dashed border-slate-200 rounded-xl">
+                  <MapPin size={40} className="mx-auto mb-3 text-slate-300" />
+                  <p className="font-medium text-slate-700">No work sites yet.</p>
+                  <p className="text-sm mt-1">Add your first site from the left panel.</p>
                 </div>
               ) : (
-                <ul className="space-y-3">
+                <ul className="grid gap-4">
                   {sites.map(site => (
-                    <li key={site.id} className="border border-slate-200 rounded-lg p-4 shadow-sm relative">
-                      <h4 className="font-bold text-slate-900 pr-8">{site.name}</h4>
-                      <div className="text-xs text-slate-500 mt-1 grid grid-cols-2 gap-y-1">
-                        <span>Lat: {site.latitude}</span>
-                        <span>Lng: {site.longitude}</span>
-                        <span className="col-span-2 text-brand-700 font-medium">Radius: {site.radius_meters}m</span>
+                    <li key={site.id} className="border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow relative bg-white group">
+                      <h4 className="font-bold text-slate-900 text-base pr-8 mb-2">{site.name}</h4>
+                      <div className="text-xs text-slate-500 grid grid-cols-2 gap-x-4 gap-y-2">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Lat</span>
+                          <span className="font-medium text-slate-700">{site.latitude.toFixed(5)}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Lng</span>
+                          <span className="font-medium text-slate-700">{site.longitude.toFixed(5)}</span>
+                        </div>
+                        <div className="col-span-2 mt-1">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-50 text-brand-700 font-semibold text-xs border border-brand-100">
+                            Radius: {site.radius_meters}m
+                          </span>
+                        </div>
                       </div>
                       <button
                         onClick={() => handleDelete(site.id)}
                         disabled={deletingId === site.id}
-                        className="absolute top-4 right-4 text-slate-400 hover:text-red-600 disabled:opacity-50 transition-colors p-1"
+                        className="absolute top-4 right-4 text-slate-300 hover:text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors p-2 rounded-lg opacity-0 group-hover:opacity-100"
                         title="Delete Site"
                       >
                         {deletingId === site.id ? <RefreshCw size={16} className="animate-spin" /> : <Trash2 size={16} />}

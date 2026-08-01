@@ -198,7 +198,7 @@ export default function AdminDashboard() {
   );
 
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden font-sans pb-16 md:pb-0">
+    <div className="flex flex-col h-screen bg-slate-50 text-slate-900 overflow-hidden font-sans pb-16 md:pb-0">
       {/* ── Toast ── */}
       {toast && (
         <div
@@ -217,188 +217,194 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* ──────────────── SIDEBAR ──────────────── */}
-      <aside className={`w-full md:w-[320px] md:min-w-[320px] bg-white border-r border-slate-200 flex-col overflow-hidden ${activeMobileTab === 'workers' ? 'flex' : 'hidden md:flex'}`}>
-        {/* Header */}
-        <div className="px-5 pt-6 pb-4 border-b border-slate-200 shrink-0">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center shrink-0">
-              <MapPin className="text-white" size={15} strokeWidth={2.25} />
-            </div>
-            <h1 className="text-lg font-bold tracking-tight text-slate-900">EmpAtt</h1>
+      {/* ──────────────── GLOBAL HEADER ──────────────── */}
+      <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-10">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center shrink-0 shadow-sm">
+            <MapPin className="text-white" size={18} strokeWidth={2.25} />
           </div>
-          <p className="text-xs text-slate-500">Field Worker Admin</p>
-        </div>
-
-        {/* Date Selector */}
-        <div className="px-5 py-3 border-b border-slate-200 shrink-0">
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => {
-              setSelectedDate(e.target.value);
-              setSelectedWorker(null);
-              setLogs([]);
-            }}
-            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 transition-colors"
-          />
-        </div>
-
-        {/* Search & Actions */}
-        <div className="px-5 py-3 border-b border-slate-200 shrink-0 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 tracking-wide uppercase">
-              <Users size={12} />
-              Workers ({filteredWorkers.length})
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowAddWorker(true)}
-                title="Add worker"
-                className="bg-brand-600 hover:bg-brand-700 text-white transition-colors cursor-pointer p-1.5 rounded flex items-center justify-center shadow-sm"
-              >
-                <UserPlus size={14} strokeWidth={2.5} />
-              </button>
-              <button
-                onClick={fetchWorkers}
-                disabled={loadingWorkers}
-                title="Refresh"
-                className="text-slate-400 hover:text-brand-600 transition-colors cursor-pointer p-1 rounded"
-              >
-                <RefreshCw size={14} className={loadingWorkers ? 'animate-spin' : ''} />
-              </button>
-            </div>
-          </div>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search size={14} className="text-slate-400" />
-            </div>
-            <input
-              type="search"
-              placeholder="Search by name or phone..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 transition-colors"
-            />
+          <div>
+            <h1 className="text-lg font-bold tracking-tight text-slate-900 leading-none">EmpAtt</h1>
+            <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-1">Admin Dashboard</p>
           </div>
         </div>
-
-        {/* Workers List */}
-        <div className="flex-1 overflow-y-auto">
-          {loadingWorkers ? (
-            <div className="px-5 py-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-200 border-t-brand-600 mx-auto" />
-            </div>
-          ) : filteredWorkers.length === 0 ? (
-            <div className="px-5 py-8 text-center">
-              <p className="text-slate-400 text-sm mb-3">No workers found</p>
-              {workers.length === 0 && (
-                <button
-                  onClick={() => setShowAddWorker(true)}
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-100 rounded-lg px-3 py-2 transition-colors cursor-pointer"
-                >
-                  <UserPlus size={14} />
-                  Add your first worker
-                </button>
-              )}
-            </div>
-          ) : (
-            <ul className="px-3 py-2 space-y-1">
-              {filteredWorkers.map((worker) => {
-                const { label, color } = statusLabel(worker);
-                const isSelected = selectedWorker?.id === worker.id;
-
-                return (
-                  <li key={worker.id} className="relative group">
-                    <button
-                      type="button"
-                      onClick={() => handleSelectWorker(worker)}
-                      aria-pressed={isSelected}
-                      className={`w-full text-left rounded-xl px-3 py-3 cursor-pointer transition-all border ${
-                        isSelected
-                          ? 'bg-brand-50 border-brand-200'
-                          : 'border-transparent hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0 pr-8">
-                          <p className="font-semibold text-sm text-slate-900 truncate">{worker.full_name}</p>
-                          <p className="text-xs text-slate-500 truncate">{worker.phone} · {worker.employee_id}</p>
-                          <p className={`text-xs mt-1 font-medium ${color}`}>{label}</p>
-                        </div>
-                        <div className="flex flex-col items-end gap-1.5 shrink-0">
-                          {/* Phone lock badge */}
-                          <span
-                            className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                              worker.is_bound
-                                ? 'bg-slate-100 text-slate-600'
-                                : 'bg-slate-50 text-slate-400'
-                            }`}
-                            title={worker.is_bound ? 'Phone locked' : 'No phone locked yet'}
-                          >
-                            {worker.is_bound ? <Lock size={10} /> : <LockOpen size={10} />}
-                            {worker.is_bound ? 'Locked' : 'Not locked'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Reset Phone Lock */}
-                      {worker.is_bound && (
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleUnbind(worker);
-                          }}
-                          className="mt-2 w-full text-[11px] text-red-600 border border-red-100 hover:bg-red-50 rounded-lg py-1.5 transition-colors flex items-center justify-center gap-1 disabled:opacity-50 cursor-pointer"
-                        >
-                          {unbindingId === worker.id ? (
-                            <RefreshCw size={10} className="animate-spin" />
-                          ) : (
-                            <LockOpen size={10} />
-                          )}
-                          Reset Lock
-                        </span>
-                      )}
-                    </button>
-                    {/* Hover Actions */}
-                    <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={(e) => { e.stopPropagation(); setShowEditWorker(worker); }} className="p-1.5 bg-white text-slate-500 hover:text-brand-600 rounded-md shadow-sm border border-slate-200">
-                        <Edit2 size={12} />
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); handleDeleteWorker(worker); }} disabled={deletingId === worker.id} className="p-1.5 bg-white text-slate-500 hover:text-red-600 rounded-md shadow-sm border border-slate-200">
-                        {deletingId === worker.id ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-5 py-3 border-t border-slate-200 space-y-2 shrink-0 bg-slate-50">
+        
+        <div className="flex items-center gap-3">
           <button
             onClick={() => setShowManageSites(true)}
-            className="w-full flex items-center justify-center gap-1.5 text-xs text-slate-600 hover:text-brand-700 bg-white border border-slate-200 hover:border-brand-200 hover:bg-brand-50 rounded-lg py-2 transition-colors cursor-pointer font-medium"
+            className="flex items-center gap-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors"
           >
-            <Settings size={14} />
-            Manage Work Sites
+            <Settings size={16} className="text-slate-500" />
+            <span className="hidden sm:inline">Manage Work Sites</span>
           </button>
+          
+          <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block" />
+          
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-1.5 text-xs text-slate-500 hover:text-red-600 border border-slate-200 hover:border-red-200 hover:bg-red-50 bg-white rounded-lg py-1.5 transition-colors cursor-pointer min-h-[32px]"
+            title="Log Out"
+            className="flex items-center justify-center w-9 h-9 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
           >
-            <LogOut size={12} />
-            Log Out
+            <LogOut size={18} />
           </button>
         </div>
-      </aside>
+      </header>
 
-      {/* ──────────────── MAIN MAP AREA ──────────────── */}
-      <main className={`flex-1 flex-col overflow-hidden ${activeMobileTab === 'map' ? 'flex' : 'hidden md:flex'}`}>
+      <div className="flex flex-1 overflow-hidden">
+        {/* ──────────────── SIDEBAR ──────────────── */}
+        <aside className={`w-full md:w-[320px] md:min-w-[320px] bg-white border-r border-slate-200 flex-col overflow-hidden ${activeMobileTab === 'workers' ? 'flex' : 'hidden md:flex'}`}>
+          {/* Date Selector */}
+          <div className="px-5 py-4 border-b border-slate-200 shrink-0 bg-slate-50/50">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Attendance Date</label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => {
+                setSelectedDate(e.target.value);
+                setSelectedWorker(null);
+                setLogs([]);
+              }}
+              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 shadow-sm transition-colors cursor-pointer"
+            />
+          </div>
+
+          {/* Search & Actions */}
+          <div className="px-5 py-3 border-b border-slate-200 shrink-0 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 tracking-wide uppercase">
+                <Users size={12} />
+                Workers ({filteredWorkers.length})
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowAddWorker(true)}
+                  title="Add worker"
+                  className="bg-brand-600 hover:bg-brand-700 text-white transition-colors cursor-pointer p-1.5 rounded flex items-center justify-center shadow-sm"
+                >
+                  <UserPlus size={14} strokeWidth={2.5} />
+                </button>
+                <button
+                  onClick={fetchWorkers}
+                  disabled={loadingWorkers}
+                  title="Refresh"
+                  className="text-slate-400 hover:text-brand-600 transition-colors cursor-pointer p-1 rounded"
+                >
+                  <RefreshCw size={14} className={loadingWorkers ? 'animate-spin' : ''} />
+                </button>
+              </div>
+            </div>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search size={14} className="text-slate-400" />
+              </div>
+              <input
+                type="search"
+                placeholder="Search by name or phone..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Workers List */}
+          <div className="flex-1 overflow-y-auto">
+            {loadingWorkers ? (
+              <div className="px-5 py-8 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-200 border-t-brand-600 mx-auto" />
+              </div>
+            ) : filteredWorkers.length === 0 ? (
+              <div className="px-5 py-8 text-center">
+                <p className="text-slate-400 text-sm mb-3">No workers found</p>
+                {workers.length === 0 && (
+                  <button
+                    onClick={() => setShowAddWorker(true)}
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-100 rounded-lg px-3 py-2 transition-colors cursor-pointer"
+                  >
+                    <UserPlus size={14} />
+                    Add your first worker
+                  </button>
+                )}
+              </div>
+            ) : (
+              <ul className="px-3 py-2 space-y-1">
+                {filteredWorkers.map((worker) => {
+                  const { label, color } = statusLabel(worker);
+                  const isSelected = selectedWorker?.id === worker.id;
+
+                  return (
+                    <li key={worker.id} className="relative group">
+                      <button
+                        type="button"
+                        onClick={() => handleSelectWorker(worker)}
+                        aria-pressed={isSelected}
+                        className={`w-full text-left rounded-xl px-3 py-3 cursor-pointer transition-all border ${
+                          isSelected
+                            ? 'bg-brand-50 border-brand-200'
+                            : 'border-transparent hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0 pr-8">
+                            <p className="font-semibold text-sm text-slate-900 truncate">{worker.full_name}</p>
+                            <p className="text-xs text-slate-500 truncate">{worker.phone} · {worker.employee_id}</p>
+                            <p className={`text-xs mt-1 font-medium ${color}`}>{label}</p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1.5 shrink-0">
+                            {/* Phone lock badge */}
+                            <span
+                              className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                                worker.is_bound
+                                  ? 'bg-slate-100 text-slate-600'
+                                  : 'bg-slate-50 text-slate-400'
+                              }`}
+                              title={worker.is_bound ? 'Phone locked' : 'No phone locked yet'}
+                            >
+                              {worker.is_bound ? <Lock size={10} /> : <LockOpen size={10} />}
+                              {worker.is_bound ? 'Locked' : 'Not locked'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Reset Phone Lock */}
+                        {worker.is_bound && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUnbind(worker);
+                            }}
+                            className="mt-2 w-full text-[11px] text-red-600 border border-red-100 hover:bg-red-50 rounded-lg py-1.5 transition-colors flex items-center justify-center gap-1 disabled:opacity-50 cursor-pointer"
+                          >
+                            {unbindingId === worker.id ? (
+                              <RefreshCw size={10} className="animate-spin" />
+                            ) : (
+                              <LockOpen size={10} />
+                            )}
+                            Reset Lock
+                          </span>
+                        )}
+                      </button>
+                      {/* Hover Actions */}
+                      <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={(e) => { e.stopPropagation(); setShowEditWorker(worker); }} className="p-1.5 bg-white text-slate-500 hover:text-brand-600 rounded-md shadow-sm border border-slate-200">
+                          <Edit2 size={12} />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); handleDeleteWorker(worker); }} disabled={deletingId === worker.id} className="p-1.5 bg-white text-slate-500 hover:text-red-600 rounded-md shadow-sm border border-slate-200">
+                          {deletingId === worker.id ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </aside>
+
+        {/* ──────────────── MAIN MAP AREA ──────────────── */}
+        <main className={`flex-1 flex-col overflow-hidden ${activeMobileTab === 'map' ? 'flex' : 'hidden md:flex'}`}>
         {/* Map Topbar */}
         <div className="px-6 py-4 bg-white border-b border-slate-200 flex items-center justify-between shrink-0">
           <div>
@@ -534,6 +540,7 @@ export default function AdminDashboard() {
           onClose={() => setShowManageSites(false)}
         />
       )}
+      </div>
     </div>
   );
 }

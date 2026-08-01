@@ -32,13 +32,16 @@ interface Props {
   latitude: number | null;
   longitude: number | null;
   radiusMeters: number;
+  readOnly?: boolean;
   onLocationSelect: (lat: number, lng: number) => void;
 }
 
-function LocationPicker({ onSelect }: { onSelect: (lat: number, lng: number) => void }) {
+function LocationPicker({ onSelect, readOnly }: { onSelect: (lat: number, lng: number) => void; readOnly: boolean }) {
   useMapEvents({
     click(e) {
-      onSelect(e.latlng.lat, e.latlng.lng);
+      if (!readOnly) {
+        onSelect(e.latlng.lat, e.latlng.lng);
+      }
     },
   });
   return null;
@@ -55,10 +58,17 @@ function MapFocuser({ lat, lng }: { lat: number | null; lng: number | null }) {
     }
   }, [lat, lng, map, hasCentered]);
 
+  // Re-center if coordinates change (like from pasting a link)
+  useEffect(() => {
+    if (lat !== null && lng !== null) {
+      map.setView([lat, lng], 15);
+    }
+  }, [lat, lng, map]);
+
   return null;
 }
 
-export default function SitePickerMap({ latitude, longitude, radiusMeters, onLocationSelect }: Props) {
+export default function SitePickerMap({ latitude, longitude, radiusMeters, readOnly = false, onLocationSelect }: Props) {
   // Default to Bangalore if no coordinates provided yet
   const center: [number, number] = latitude !== null && longitude !== null 
     ? [latitude, longitude] 
@@ -76,7 +86,7 @@ export default function SitePickerMap({ latitude, longitude, radiusMeters, onLoc
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
         
-        <LocationPicker onSelect={onLocationSelect} />
+        <LocationPicker onSelect={onLocationSelect} readOnly={readOnly} />
         <MapFocuser lat={latitude} lng={longitude} />
 
         {latitude !== null && longitude !== null && (
@@ -95,9 +105,11 @@ export default function SitePickerMap({ latitude, longitude, radiusMeters, onLoc
           </>
         )}
       </MapContainer>
-      <div className="absolute top-2 right-2 z-[400] bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-md text-xs font-medium text-slate-700 shadow-sm border border-slate-200 pointer-events-none">
-        Click anywhere to drop a pin
-      </div>
+      {!readOnly && (
+        <div className="absolute top-2 right-2 z-[400] bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-md text-xs font-medium text-slate-700 shadow-sm border border-slate-200 pointer-events-none">
+          Click anywhere to drop a pin
+        </div>
+      )}
     </div>
   );
 }
