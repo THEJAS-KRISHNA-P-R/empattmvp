@@ -51,6 +51,10 @@ export default function AddWorkerModal({ onClose, onCreated }: Props) {
       setError('PIN must be at least 4 characters');
       return;
     }
+    if (phone.length !== 10) {
+      setError('Phone number must be exactly 10 digits');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -59,7 +63,7 @@ export default function AddWorkerModal({ onClose, onCreated }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           full_name: fullName.trim(),
-          phone: phone.trim(),
+          phone: `+91${phone.trim()}`,
           employee_id: employeeId.trim(),
           pin,
         }),
@@ -140,15 +144,22 @@ export default function AddWorkerModal({ onClose, onCreated }: Props) {
               <label htmlFor="phone" className="text-xs font-semibold text-slate-600 mb-1.5 block">
                 Phone Number
               </label>
-              <input
-                id="phone"
-                required
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="e.g. +919812345678"
-                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 transition-colors"
-              />
+              <div className="flex">
+                <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-slate-200 bg-slate-50 text-slate-500 text-sm font-medium">
+                  +91
+                </span>
+                <input
+                  id="phone"
+                  required
+                  type="tel"
+                  maxLength={10}
+                  pattern="[0-9]{10}"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                  placeholder="9812345678"
+                  className="w-full bg-white border border-slate-200 rounded-r-lg px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 transition-colors"
+                />
+              </div>
             </div>
             <div>
               <label htmlFor="employee-id" className="text-xs font-semibold text-slate-600 mb-1.5 block">

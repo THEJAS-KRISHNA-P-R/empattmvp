@@ -10,6 +10,7 @@ class AppTextField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
   final String? hint;
+  final String? prefixText;
   final IconData? icon;
   final Widget? suffixIcon;
   final bool obscureText;
@@ -24,6 +25,7 @@ class AppTextField extends StatelessWidget {
     required this.label,
     required this.controller,
     this.hint,
+    this.prefixText,
     this.icon,
     this.suffixIcon,
     this.obscureText = false,
@@ -61,6 +63,8 @@ class AppTextField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(color: AppColors.slate300),
+            prefixText: prefixText,
+            prefixStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
             prefixIcon: icon != null ? Icon(icon, color: AppColors.slate400, size: 20) : null,
             suffixIcon: suffixIcon,
             counterText: maxLength != null ? '' : null,

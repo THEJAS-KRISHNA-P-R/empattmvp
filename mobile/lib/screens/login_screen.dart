@@ -138,10 +138,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       label: 'Phone Number',
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
-                      hint: '+1234567890',
+                      hint: '9812345678',
+                      prefixText: '+91 ',
+                      maxLength: 10,
                       icon: Icons.phone_rounded,
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) return 'Enter your phone number';
+                        if (v.trim().length != 10) return 'Phone number must be exactly 10 digits';
                         return null;
                       },
                     ),

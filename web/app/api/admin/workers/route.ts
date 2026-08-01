@@ -114,6 +114,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!/^\+91\d{10}$/.test(phone)) {
+      return NextResponse.json(
+        { error: 'Phone number must be exactly 10 digits with a +91 prefix' },
+        { status: 400 }
+      );
+    }
+
     const passcode_hash = await bcrypt.hash(pin, BCRYPT_ROUNDS);
 
     const { data: worker, error } = await supabaseAdmin
