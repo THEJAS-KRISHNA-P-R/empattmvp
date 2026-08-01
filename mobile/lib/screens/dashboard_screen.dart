@@ -203,21 +203,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     // 1. Get GPS position. If this fails, there's nothing to queue — the
-    //    worker needs to get a GPS fix and try again, that's not a
-    //    connectivity problem.
+    //    worker needs to get a GPS fix and try again.
+    //    We prioritize the hot stream location (_lastPosition) to make clocking instant.
     final LocationResult location;
-    try {
-      location = await LocationService.getCurrentLocation();
-    } catch (e) {
-      _showSnack(e.toString().replaceAll('Exception: ', ''), isError: true, duration: const Duration(seconds: 4));
-      if (mounted) {
-        setState(() {
-          _clockingIn = false;
-          _clockingOut = false;
-          _gpsLoading = false;
-        });
+    if (_lastPosition != null) {
+      location = LocationResult(
+        latitude: _lastPosition!.latitude,
+        longitude: _lastPosition!.longitude,
+        accuracyMeters: _lastPosition!.accuracy,
+        isMocked: _lastPosition!.isMocked,
+      );
+    } else {
+      try {
+        location = await LocationService.getCurrentLocation();
+      } catch (e) {
+        _showSnack(e.toString().replaceAll('Exception: ', ''), isError: true, duration: const Duration(seconds: 4));
+        if (mounted) {
+          setState(() {
+            _clockingIn = false;
+            _clockingOut = false;
+            _gpsLoading = false;
+          });
+        }
+        return;
       }
-      return;
     }
 
     setState(() => _gpsLoading = false);
