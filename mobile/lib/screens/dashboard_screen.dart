@@ -180,7 +180,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       location = await LocationService.getCurrentLocation();
     } catch (e) {
-      _showSnack('Could not get GPS location. Check that location is enabled.', isError: true);
+      _showSnack(e.toString().replaceAll('Exception: ', ''), isError: true, duration: const Duration(seconds: 4));
       if (mounted) {
         setState(() {
           _clockingIn = false;

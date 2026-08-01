@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -136,6 +136,11 @@ export default function MapView({ logs }: Props) {
             position={[log.latitude, log.longitude]}
             icon={icon}
           >
+            <Tooltip direction="right" offset={[10, 0]} opacity={0.9} permanent className="!bg-white !border-slate-200 !text-slate-700 !shadow-sm !font-sans !rounded-md !px-2 !py-1">
+              <div className="text-[11px] font-bold tracking-wide">
+                {log.event_type} <span className="font-medium text-slate-500">{formatTime(log.client_timestamp)}</span>
+              </div>
+            </Tooltip>
             <Popup>
               <div className="text-sm min-w-[180px]">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">

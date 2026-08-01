@@ -1,28 +1,35 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
-/**
- * GET /api/admin/sites
- *
- * Returns all active work sites.
- * Used by Admin Dashboard dropdowns and the Flutter mobile app site picker.
- */
-export async function GET() {
+export async function POST(request: Request) {
   try {
-    const { data: sites, error } = await supabaseAdmin
-      .from('work_sites')
-      .select('id, name, latitude, longitude, radius_meters')
-      .eq('is_active', true)
-      .order('name');
+    const body = await request.json();
+    const { name, latitude, longitude, radius_meters } = body ?? {};
 
-    if (error) {
-      console.error('[sites] Fetch error:', error);
-      return NextResponse.json({ error: 'Failed to fetch work sites' }, { status: 500 });
+    if (!name || latitude == null || longitude == null || radius_meters == null) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    return NextResponse.json({ sites: sites ?? [] });
+    const { data: site, error } = await supabaseAdmin
+      .from('work_sites')
+      .insert({
+        name,
+        latitude: Number(latitude),
+        longitude: Number(longitude),
+        radius_meters: Number(radius_meters),
+        is_active: true
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[site-create]', error);
+      return NextResponse.json({ error: 'Failed to create site' }, { status: 500 });
+    }
+
+    return NextResponse.json({ site });
   } catch (err) {
-    console.error('[sites] Unexpected error:', err);
+    console.error('[site-create]', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
