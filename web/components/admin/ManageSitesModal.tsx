@@ -205,7 +205,6 @@ export default function ManageSitesModal({ onClose }: Props) {
                       if (localMatch) {
                         setLatitude(localMatch[1]);
                         setLongitude(localMatch[2]);
-                        setTimeout(() => { e.target.value = ''; }, 500);
                         return;
                       }
 
@@ -222,7 +221,6 @@ export default function ManageSitesModal({ onClose }: Props) {
                           if (res.ok && data.latitude && data.longitude) {
                             setLatitude(data.latitude.toString());
                             setLongitude(data.longitude.toString());
-                            setTimeout(() => { e.target.value = ''; }, 500);
                           } else {
                             setError('Could not extract coordinates from that link.');
                           }
@@ -234,8 +232,12 @@ export default function ManageSitesModal({ onClose }: Props) {
                       }
                     }}
                   />
-                  {!latitude && (
+                  {!latitude ? (
                     <p className="text-[10px] text-slate-500 mt-2">Paste a link to extract coordinates and see preview below.</p>
+                  ) : (
+                    <p className="text-[10px] text-brand-600 font-bold flex items-center gap-1 mt-2">
+                      <RefreshCw size={10} className="text-brand-600" /> Location extracted successfully!
+                    </p>
                   )}
                 </div>
               )}
