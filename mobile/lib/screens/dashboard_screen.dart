@@ -50,6 +50,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // Status & Timer
   String? _currentStatus; // 'IN' or 'OUT'
+  String? _clockedInSiteId;
   DateTime? _lastClockTime;
   Timer? _clockTimer;
   String _elapsedTimeStr = '00:00:00';
@@ -97,15 +98,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ───────────────────────────────────────
   // Status & Timer
   // ───────────────────────────────────────
+  void _syncSelectedSiteWithStatus() {
+    if (_currentStatus == 'IN' && _clockedInSiteId != null && _sites.isNotEmpty) {
+      try {
+        _selectedSite = _sites.firstWhere((s) => s.id == _clockedInSiteId);
+        _userSelectedSite = true;
+      } catch (_) {}
+    }
+  }
+
   Future<void> _loadStatus() async {
     try {
       final status = await ApiService.getWorkerStatus(widget.worker.id);
       if (mounted) {
         setState(() {
           _currentStatus = status['last_event'] as String?;
+          _clockedInSiteId = status['site_id'] as String?;
           final timestamp = status['client_timestamp'] as String?;
           _lastClockTime = timestamp != null ? DateTime.parse(timestamp).toLocal() : null;
           _loadingStatus = false;
+          _syncSelectedSiteWithStatus();
         });
       }
     } catch (e) {
@@ -185,6 +197,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (!_userSelectedSite && sites.isNotEmpty) {
             _selectedSite = _sites.first;
           }
+          _syncSelectedSiteWithStatus();
           _loadingSites = false;
         });
       }
@@ -642,7 +655,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                 );
                               }).toList(),
-                              onChanged: anyLoading
+                              onChanged: (anyLoading || _currentStatus == 'IN')
                                   ? null
                                   : (site) => setState(() {
                                       _selectedSite = site;
