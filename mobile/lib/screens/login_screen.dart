@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       // 2. Call login API — phone + employee ID + PIN, all three must
       //    match the same worker record.
       final worker = await ApiService.login(
-        phone: _phoneController.text.trim(),
+        phone: '+91${_phoneController.text.trim()}',
         employeeId: _employeeIdController.text.trim(),
         passcode: _passcodeController.text.trim(),
         deviceUuid: deviceUuid,

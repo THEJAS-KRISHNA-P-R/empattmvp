@@ -52,6 +52,7 @@ export interface ClockLog {
 
 interface Props {
   logs: ClockLog[];
+  focusedCoordinate?: [number, number] | null;
 }
 
 /** Re-centres the map whenever logs change */
@@ -63,6 +64,17 @@ function MapFocuser({ logs }: { logs: ClockLog[] }) {
     const bounds = L.latLngBounds(points);
     map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
   }, [logs, map]);
+
+  return null;
+}
+
+function PointFocuser({ coordinate }: { coordinate?: [number, number] | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (coordinate) {
+      map.flyTo(coordinate, 18, { duration: 1.5 });
+    }
+  }, [coordinate, map]);
   return null;
 }
 
@@ -70,7 +82,7 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function MapView({ logs }: Props) {
+export default function MapView({ logs, focusedCoordinate }: Props) {
   const hasWarning = (log: ClockLog) =>
     log.is_mock_location ||
     log.accuracy_meters > 100 ||
@@ -110,6 +122,7 @@ export default function MapView({ logs }: Props) {
       />
 
       <MapFocuser logs={logs} />
+      <PointFocuser coordinate={focusedCoordinate} />
 
       {/* Journey polylines (dashed) */}
       {polylineSegments.map((segment, i) => (

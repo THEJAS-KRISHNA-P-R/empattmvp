@@ -6,13 +6,14 @@ interface Props {
   logs: ClockLog[];
   workerName: string;
   date: string;
+  onLogClick?: (lat: number, lng: number) => void;
 }
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function TimelinePane({ logs, workerName, date }: Props) {
+export default function TimelinePane({ logs, workerName, date, onLogClick }: Props) {
   if (logs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center px-4 bg-slate-50">
@@ -50,7 +51,10 @@ export default function TimelinePane({ logs, workerName, date }: Props) {
                     isWarning ? 'bg-amber-500' : isClockIn ? 'bg-brand-500' : 'bg-red-500'
                   }`}
                 />
-                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm relative">
+                <div
+                  className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm relative cursor-pointer hover:border-brand-300 hover:shadow-md transition-all"
+                  onClick={() => onLogClick?.(log.latitude, log.longitude)}
+                >
                   <div className="flex justify-between items-start mb-1">
                     <span
                       className={`font-bold text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${

@@ -69,6 +69,7 @@ export default function AdminDashboard() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
   const [logs, setLogs] = useState<ClockLog[]>([]);
+  const [focusedCoordinate, setFocusedCoordinate] = useState<[number, number] | null>(null);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [activeMobileTab, setActiveMobileTab] = useState<'workers' | 'map' | 'timeline'>('workers');
@@ -466,7 +467,7 @@ export default function AdminDashboard() {
             </div>
           ) : (
             <div className="h-full md:rounded-xl overflow-hidden md:border border-slate-200">
-              <MapView logs={logs} />
+              <MapView logs={logs} focusedCoordinate={focusedCoordinate} />
             </div>
           )}
         </div>
@@ -481,7 +482,19 @@ export default function AdminDashboard() {
             <p className="text-slate-400 text-sm mt-1">Select a worker to see their full day&apos;s history here.</p>
           </div>
         ) : (
-          <TimelinePane logs={logs} workerName={selectedWorker.full_name} date={selectedDate} />
+          <TimelinePane 
+            logs={logs} 
+            workerName={selectedWorker.full_name} 
+            date={selectedDate} 
+            onLogClick={(lat, lng) => {
+              setFocusedCoordinate([lat, lng]);
+              if (window.innerWidth < 1280 && window.innerWidth >= 768) {
+                // Not mobile, but maybe not xl where timeline is always visible
+              } else if (window.innerWidth < 768) {
+                setActiveMobileTab('map');
+              }
+            }}
+          />
         )}
       </aside>
 
