@@ -499,7 +499,7 @@ export default function AdminDashboard() {
       </aside>
 
       {/* ──────────────── MOBILE BOTTOM NAV ──────────────── */}
-      <div className="md:hidden flex bg-white border-t border-slate-200 fixed bottom-0 left-0 right-0 z-50">
+      <div className="md:hidden flex bg-white border-t border-slate-200 fixed bottom-0 left-0 right-0 z-[9999]">
         <button onClick={() => setActiveMobileTab('workers')} className={`flex-1 py-3 flex flex-col items-center justify-center gap-1 ${activeMobileTab === 'workers' ? 'text-brand-600' : 'text-slate-500'}`}>
           <Users size={18} />
           <span className="text-[10px] font-medium">Workers</span>

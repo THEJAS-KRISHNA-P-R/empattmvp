@@ -232,9 +232,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
 
     // Strict Geofencing Check
-    if (distance > site.radius_meters) {
+    if (distance > site.radiusMeters) {
       _showSnack(
-        'You are ${distance.toStringAsFixed(0)}m from ${site.name}. You must be within ${site.radius_meters}m to clock in or out!', 
+        'You are ${distance.toStringAsFixed(0)}m from ${site.name}. You must be within ${site.radiusMeters}m to clock in or out!', 
         isError: true, 
         duration: const Duration(seconds: 4)
       );
