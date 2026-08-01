@@ -24,12 +24,15 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const updates: Record<string, unknown> = {
       full_name,
       phone,
-      employee_id,
-      is_active: Boolean(is_active)
+      employee_id
     };
 
+    if (is_active !== undefined) {
+      updates.is_active = Boolean(is_active);
+    }
+
     if (pin && pin.length >= MIN_PIN_LENGTH) {
-      updates.pin_hash = await bcrypt.hash(pin, BCRYPT_ROUNDS);
+      updates.passcode_hash = await bcrypt.hash(pin, BCRYPT_ROUNDS);
     } else if (pin) {
       return NextResponse.json({ error: `PIN must be at least ${MIN_PIN_LENGTH} characters` }, { status: 400 });
     }
