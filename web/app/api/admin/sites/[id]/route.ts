@@ -6,19 +6,22 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     const { id } = await context.params;
     if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
 
-    // For MVP: nullify site_id in attendance_logs referencing this site so
-    // the FK constraint doesn't block deletion.
+    // Step 1: Delete all attendance logs tied to this site.
+    // site_id is NOT NULL in the DB so we can't nullify — we delete the logs instead.
     const { error: logError } = await supabaseAdmin
       .from('attendance_logs')
-      .update({ site_id: null })
+      .delete()
       .eq('site_id', id);
 
     if (logError) {
-      console.error('[site-delete] Could not nullify attendance_logs:', logError);
-      return NextResponse.json({ error: 'Failed to unlink attendance records before deleting site.' }, { status: 500 });
+      console.error('[site-delete] Could not delete attendance_logs:', logError);
+      return NextResponse.json(
+        { error: 'Failed to remove attendance records: ' + logError.message },
+        { status: 500 }
+      );
     }
 
-    // Now hard-delete the site row.
+    // Step 2: Hard-delete the site row.
     const { error } = await supabaseAdmin
       .from('work_sites')
       .delete()
@@ -26,7 +29,10 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
 
     if (error) {
       console.error('[site-delete]', error);
-      return NextResponse.json({ error: 'Failed to delete site: ' + error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to delete site: ' + error.message },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ success: true });
