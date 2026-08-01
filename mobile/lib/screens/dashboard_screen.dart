@@ -36,6 +36,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<WorkSite> _sites = [];
   WorkSite? _selectedSite;
   bool _loadingSites = true;
+  bool _userSelectedSite = false;
 
   // Clock action state
   bool _clockingIn = false;
@@ -88,7 +89,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       _gpsSubscription = LocationService.getPositionStream().listen(
         (pos) {
-          if (mounted) setState(() => _lastPosition = pos);
+          if (mounted) {
+            setState(() {
+              _lastPosition = pos;
+              if (_sites.isNotEmpty) {
+                // Auto-sort sites by distance so the nearest is always on top
+                _sites.sort((a, b) {
+                  final distA = Geolocator.distanceBetween(pos.latitude, pos.longitude, a.latitude, a.longitude);
+                  final distB = Geolocator.distanceBetween(pos.latitude, pos.longitude, b.latitude, b.longitude);
+                  return distA.compareTo(distB);
+                });
+                
+                // If user hasn't manually picked a site, auto-select the nearest one
+                if (!_userSelectedSite) {
+                  _selectedSite = _sites.first;
+                }
+              }
+            });
+          }
         },
         onError: (_) {}, // Silently ignore stream errors; user taps will surface them
       );
@@ -105,7 +123,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) {
         setState(() {
           _sites = sites;
-          _selectedSite = sites.isNotEmpty ? sites.first : null;
+          
+          if (_lastPosition != null) {
+            _sites.sort((a, b) {
+              final distA = Geolocator.distanceBetween(_lastPosition!.latitude, _lastPosition!.longitude, a.latitude, a.longitude);
+              final distB = Geolocator.distanceBetween(_lastPosition!.latitude, _lastPosition!.longitude, b.latitude, b.longitude);
+              return distA.compareTo(distB);
+            });
+          }
+          
+          if (!_userSelectedSite && sites.isNotEmpty) {
+            _selectedSite = _sites.first;
+          }
           _loadingSites = false;
         });
       }
@@ -194,6 +223,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _gpsLoading = false);
     final site = _selectedSite!;
     final clientTimestamp = DateTime.now();
+
+    final distance = Geolocator.distanceBetween(
+      location.latitude,
+      location.longitude,
+      site.latitude,
+      site.longitude,
+    );
+
+    // Strict Geofencing Check
+    if (distance > site.radius_meters) {
+      _showSnack(
+        'You are ${distance.toStringAsFixed(0)}m from ${site.name}. You must be within ${site.radius_meters}m to clock in or out!', 
+        isError: true, 
+        duration: const Duration(seconds: 4)
+      );
+      if (mounted) {
+        setState(() {
+          _clockingIn = false;
+          _clockingOut = false;
+        });
+      }
+      return;
+    }
 
     // 2. Send clock event.
     try {
@@ -510,7 +562,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               }).toList(),
                               onChanged: anyLoading
                                   ? null
-                                  : (site) => setState(() => _selectedSite = site),
+                                  : (site) => setState(() {
+                                      _selectedSite = site;
+                                      _userSelectedSite = true;
+                                    }),
                             ),
                     ),
 
