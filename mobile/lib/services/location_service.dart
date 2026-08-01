@@ -89,7 +89,7 @@ class LocationService {
         if (fallback != null) {
           final age = DateTime.now().difference(fallback.timestamp);
           if (age.inMinutes <= 2) {
-            if (fallback.accuracy > 100) {
+            if (fallback.accuracy > 50) {
               throw Exception(
                 'Location accuracy is too low (±${fallback.accuracy.toStringAsFixed(0)}m).\n'
                 'Please step outdoors to get a better GPS signal.',
@@ -111,7 +111,7 @@ class LocationService {
       rethrow;
     }
 
-    if (position.accuracy > 100) {
+    if (position.accuracy > 50) {
       throw Exception(
         'Location accuracy is too low (±${position.accuracy.toStringAsFixed(0)}m).\n'
         'Please step outdoors to get a better GPS signal.',
