@@ -233,23 +233,24 @@ export default function AdminDashboard() {
           </div>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <button
             onClick={() => setShowManageSites(true)}
-            className="hidden sm:flex items-center gap-2 text-sm font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 px-5 py-2.5 rounded-xl transition-all shadow-sm"
+            className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 px-3 py-2 sm:px-5 sm:py-2.5 rounded-lg sm:rounded-xl transition-all shadow-sm"
           >
-            <Settings size={16} className="text-brand-600" />
-            <span>Manage Work Sites</span>
+            <Settings size={14} className="text-brand-600 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Manage Work Sites</span>
+            <span className="sm:hidden">Sites</span>
           </button>
           
-          <div className="w-px h-6 bg-slate-200 hidden sm:block" />
+          <div className="w-px h-5 sm:h-6 bg-slate-200" />
           
           <button
             onClick={handleLogout}
             title="Log Out"
-            className="flex items-center justify-center w-10 h-10 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+            className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
           >
-            <LogOut size={18} />
+            <LogOut size={16} className="sm:w-[18px] sm:h-[18px]" />
           </button>
         </div>
       </header>
