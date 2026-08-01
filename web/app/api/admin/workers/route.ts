@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
 
     const { data: worker, error } = await supabaseAdmin
       .from('workers')
-      .insert({ full_name, phone, employee_id, passcode_hash })
+      .insert({ full_name, phone, employee_id, passcode_hash, is_active: true })
       .select('id, full_name, phone, employee_id')
       .single();
 
